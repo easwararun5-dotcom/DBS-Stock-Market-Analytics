@@ -1,0 +1,48 @@
+# ── Environment files ────────────────────────────────────────────────────────
+# Exclude all real .env variants; keep the example template tracked
+.env
+.env.*
+!.env.example
+
+# ── Python virtual environments ──────────────────────────────────────────────
+venv/
+.venv/
+ENV/
+env/
+
+# ── Python cache & compiled files ────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# ── macOS metadata ───────────────────────────────────────────────────────────
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# ── IDE-specific temporary files ─────────────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+*.swo
+*.sublime-workspace
+*.sublime-project
+
+# ── Logs, PID files, and temporary artifacts ─────────────────────────────────
+*.log
+*.pid
+*.seed
+*.pid.lock
+
+# ── Build / distribution artifacts ───────────────────────────────────────────
+dist/
+build/
+*.egg-info/
+.eggs/
+
+# ── Test and coverage artifacts ──────────────────────────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/
