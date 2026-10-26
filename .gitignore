@@ -46,3 +46,7 @@ build/
 .pytest_cache/
 .coverage
 htmlcov/
+
+# -- Windows metadata --
+desktop.ini
+Thumbs.db
