@@ -45,9 +45,10 @@ BEGIN
     -- Buy 10 shares @ 3500.0000 on 2026-03-01
     CALL record_stock_purchase(v_user_id, 'TCS.NS', 10.0000, 3500.0000, '2026-03-01');
 
-    SELECT * INTO v_holding_row
-    FROM portfolio_holding
-    WHERE user_id = v_user_id AND ticker = 'TCS.NS';
+    SELECT h.* INTO v_holding_row
+    FROM portfolio_holding h
+    JOIN user_portfolio up ON h.portfolio_id = up.portfolio_id
+    WHERE up.user_id = v_user_id AND h.ticker = 'TCS.NS';
 
     IF v_holding_row.quantity <> 10.0000 OR
        v_holding_row.invested_value <> 35000.00 OR
@@ -63,9 +64,10 @@ BEGIN
     -- Sell 4 shares @ 3600.0000 on 2026-03-02
     CALL record_stock_sale(v_user_id, 'TCS.NS', 4.0000, 3600.0000, '2026-03-02');
 
-    SELECT * INTO v_holding_row
-    FROM portfolio_holding
-    WHERE user_id = v_user_id AND ticker = 'TCS.NS';
+    SELECT h.* INTO v_holding_row
+    FROM portfolio_holding h
+    JOIN user_portfolio up ON h.portfolio_id = up.portfolio_id
+    WHERE up.user_id = v_user_id AND h.ticker = 'TCS.NS';
 
     -- Remaining quantity: 6. Average buy price: 3500. Invested value: 6 * 3500 = 21000
     IF v_holding_row.quantity <> 6.0000 OR
@@ -171,9 +173,10 @@ BEGIN
     -- ========================================================================
     CALL record_stock_sale(v_user_id, 'TCS.NS', 6.0000, 3700.0000, '2026-03-04');
 
-    SELECT * INTO v_holding_row
-    FROM portfolio_holding
-    WHERE user_id = v_user_id AND ticker = 'TCS.NS';
+    SELECT h.* INTO v_holding_row
+    FROM portfolio_holding h
+    JOIN user_portfolio up ON h.portfolio_id = up.portfolio_id
+    WHERE up.user_id = v_user_id AND h.ticker = 'TCS.NS';
 
     IF v_holding_row.quantity <> 0.0000 OR
        v_holding_row.invested_value <> 0.00 OR
@@ -203,9 +206,10 @@ BEGIN
     -- Buy 5 shares @ 3800
     CALL record_stock_purchase(v_user_id, 'TCS.NS', 5.0000, 3800.0000, '2026-03-05');
 
-    SELECT * INTO v_holding_row
-    FROM portfolio_holding
-    WHERE user_id = v_user_id AND ticker = 'TCS.NS';
+    SELECT h.* INTO v_holding_row
+    FROM portfolio_holding h
+    JOIN user_portfolio up ON h.portfolio_id = up.portfolio_id
+    WHERE up.user_id = v_user_id AND h.ticker = 'TCS.NS';
 
     IF v_holding_row.quantity <> 5.0000 OR
        v_holding_row.average_buy_price <> 3800.0000 OR
@@ -216,9 +220,10 @@ BEGIN
     -- Buy 5 more shares @ 4000 (weighted avg: 3900, invested: 39000, total qty: 10)
     CALL record_stock_purchase(v_user_id, 'TCS.NS', 5.0000, 4000.0000, '2026-03-06');
 
-    SELECT * INTO v_holding_row
-    FROM portfolio_holding
-    WHERE user_id = v_user_id AND ticker = 'TCS.NS';
+    SELECT h.* INTO v_holding_row
+    FROM portfolio_holding h
+    JOIN user_portfolio up ON h.portfolio_id = up.portfolio_id
+    WHERE up.user_id = v_user_id AND h.ticker = 'TCS.NS';
 
     IF v_holding_row.quantity <> 10.0000 OR
        v_holding_row.average_buy_price <> 3900.0000 OR
@@ -229,9 +234,10 @@ BEGIN
     -- Partial sale of 3 shares @ 4200 (7 remaining @ 3900, cost basis: 27300)
     CALL record_stock_sale(v_user_id, 'TCS.NS', 3.0000, 4200.0000, '2026-03-07');
 
-    SELECT * INTO v_holding_row
-    FROM portfolio_holding
-    WHERE user_id = v_user_id AND ticker = 'TCS.NS';
+    SELECT h.* INTO v_holding_row
+    FROM portfolio_holding h
+    JOIN user_portfolio up ON h.portfolio_id = up.portfolio_id
+    WHERE up.user_id = v_user_id AND h.ticker = 'TCS.NS';
 
     IF v_holding_row.quantity <> 7.0000 OR
        v_holding_row.average_buy_price <> 3900.0000 OR

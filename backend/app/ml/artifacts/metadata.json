@@ -1,0 +1,135 @@
+{
+  "model_version": "1.1.0",
+  "model_type": "hist_gradient_boosting",
+  "training_timestamp": "2026-10-26T17:53:15.856030+00:00",
+  "dataset_source": "/Users/easwarap/.gemini/antigravity-ide/scratch/DBS-Stock-Market-Analytics/data/historical/nifty50_historical_data.csv",
+  "total_records": 287310,
+  "ticker_count": 49,
+  "forecast_horizon_days": 5,
+  "target_threshold": 0.015,
+  "classes": {
+    "0": "DOWN",
+    "1": "NEUTRAL",
+    "2": "UP"
+  },
+  "feature_columns": [
+    "return_1d",
+    "return_3d",
+    "return_5d",
+    "return_10d",
+    "return_20d",
+    "close_to_ma_5",
+    "close_to_ma_10",
+    "close_to_ma_20",
+    "close_to_ma_50",
+    "close_to_ma_200",
+    "ma5_to_ma20",
+    "ma20_to_ma50",
+    "ma50_to_ma200",
+    "volatility_5d",
+    "volatility_10d",
+    "volatility_20d",
+    "high_low_spread",
+    "volume_change_1d",
+    "volume_to_ma20",
+    "rsi_14"
+  ],
+  "date_ranges": {
+    "train": "1999-10-07 to 2021-12-24",
+    "val": "2022-01-03 to 2023-12-22",
+    "test": "2024-01-01 to 2026-01-22"
+  },
+  "validation_performance": {
+    "accuracy": 0.39363966445473897,
+    "balanced_accuracy": 0.37182204353344733,
+    "macro_precision": 0.37405531529007047,
+    "macro_recall": 0.37182204353344733,
+    "macro_f1": 0.3634653579380722,
+    "per_class": {
+      "DOWN": {
+        "precision": 0.31336898395721924,
+        "recall": 0.18474148802017654,
+        "f1": 0.23244744149147165,
+        "support": 6344
+      },
+      "NEUTRAL": {
+        "precision": 0.4231206364669589,
+        "recall": 0.5730621220450797,
+        "f1": 0.4868070798113296,
+        "support": 9095
+      },
+      "UP": {
+        "precision": 0.38567632544603314,
+        "recall": 0.3576625205350857,
+        "f1": 0.3711415525114155,
+        "support": 8522
+      }
+    },
+    "confusion_matrix": [
+      [
+        1172,
+        2963,
+        2209
+      ],
+      [
+        1237,
+        5212,
+        2646
+      ],
+      [
+        1331,
+        4143,
+        3048
+      ]
+    ],
+    "sample_count": 23961,
+    "mean_brier_score": 0.21925698022993886
+  },
+  "test_performance": {
+    "accuracy": 0.39011142617516675,
+    "balanced_accuracy": 0.3623104619535931,
+    "macro_precision": 0.35958052838026533,
+    "macro_recall": 0.3623104619535931,
+    "macro_f1": 0.3488781291828113,
+    "per_class": {
+      "DOWN": {
+        "precision": 0.2859750532400365,
+        "recall": 0.13579890205143022,
+        "f1": 0.18415123910275247,
+        "support": 6922
+      },
+      "NEUTRAL": {
+        "precision": 0.4397976900430286,
+        "recall": 0.575976272862086,
+        "f1": 0.4987586679222669,
+        "support": 10115
+      },
+      "UP": {
+        "precision": 0.35296884185773075,
+        "recall": 0.3751562109472632,
+        "f1": 0.36372448052341433,
+        "support": 8002
+      }
+    },
+    "confusion_matrix": [
+      [
+        940,
+        3544,
+        2438
+      ],
+      [
+        1224,
+        5826,
+        3065
+      ],
+      [
+        1123,
+        3877,
+        3002
+      ]
+    ],
+    "sample_count": 25039,
+    "mean_brier_score": 0.22034071414409237
+  },
+  "disclaimer": "Experimental model estimate based on historical technical price patterns. Not financial advice or guarantee of future profitability."
+}

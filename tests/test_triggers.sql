@@ -24,6 +24,8 @@ DECLARE
     v_holding_row       RECORD;
     v_holding_quantity  NUMERIC;
     v_err_caught        BOOLEAN;
+    v_portfolio_id      INTEGER;
+    v_has_user_id       BOOLEAN;
 BEGIN
     RAISE NOTICE '============================================================';
     RAISE NOTICE 'STARTING STRENGTHENED DATABASE TRIGGER REGRESSION SUITE';
@@ -40,15 +42,30 @@ BEGIN
     VALUES ('test_trg_user2', 'trg_test2@example.com', 'hash456', 'user')
     RETURNING user_id INTO v_user2_id;
 
-    RAISE NOTICE 'Fixture setup: created test users % and %', v_user_id, v_user2_id;
+    INSERT INTO user_portfolio (user_id, portfolio_name, cash_balance)
+    VALUES (v_user_id, 'Default Portfolio', 100000.00)
+    RETURNING portfolio_id INTO v_portfolio_id;
+
+    SELECT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'portfolio_holding' AND column_name = 'user_id'
+    ) INTO v_has_user_id;
+
+    RAISE NOTICE 'Fixture setup: created test users % and %, portfolio %', v_user_id, v_user2_id, v_portfolio_id;
 
     -- ========================================================================
     -- REGRESSION TEST 1: Holding of 10 shares, previous SELL of 7 shares,
     --                   followed by an attempted SELL of 5 shares (must reject).
     -- ========================================================================
-    INSERT INTO portfolio_holding (user_id, ticker, quantity, invested_value, average_buy_price, purchase_date)
-    VALUES (v_user_id, 'TCS.NS', 10.0000, 35000.00, 3500.0000, '2026-03-01')
-    RETURNING holding_id INTO v_holding_id;
+    IF v_has_user_id THEN
+        EXECUTE 'INSERT INTO portfolio_holding (user_id, portfolio_id, ticker, quantity, invested_value, average_buy_price, purchase_date) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING holding_id'
+        INTO v_holding_id
+        USING v_user_id, v_portfolio_id, 'TCS.NS', 10.0000, 35000.00, 3500.0000, '2026-03-01'::date;
+    ELSE
+        EXECUTE 'INSERT INTO portfolio_holding (portfolio_id, ticker, quantity, invested_value, average_buy_price, purchase_date) VALUES ($1, $2, $3, $4, $5, $6) RETURNING holding_id'
+        INTO v_holding_id
+        USING v_portfolio_id, 'TCS.NS', 10.0000, 35000.00, 3500.0000, '2026-03-01'::date;
+    END IF;
 
     -- First SELL of 7 shares
     INSERT INTO portfolio_transaction (
@@ -202,9 +219,15 @@ BEGIN
     -- ========================================================================
     -- REGRESSION TEST 5: Multiple transactions affecting the same holding
     -- ========================================================================
-    INSERT INTO portfolio_holding (user_id, ticker, quantity, invested_value, average_buy_price, purchase_date)
-    VALUES (v_user_id, 'HDFCBANK.NS', 50.0000, 75000.00, 1500.0000, '2026-03-01')
-    RETURNING holding_id INTO v_h2_id;
+    IF v_has_user_id THEN
+        EXECUTE 'INSERT INTO portfolio_holding (user_id, portfolio_id, ticker, quantity, invested_value, average_buy_price, purchase_date) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING holding_id'
+        INTO v_h2_id
+        USING v_user_id, v_portfolio_id, 'HDFCBANK.NS', 50.0000, 75000.00, 1500.0000, '2026-03-01'::date;
+    ELSE
+        EXECUTE 'INSERT INTO portfolio_holding (portfolio_id, ticker, quantity, invested_value, average_buy_price, purchase_date) VALUES ($1, $2, $3, $4, $5, $6) RETURNING holding_id'
+        INTO v_h2_id
+        USING v_portfolio_id, 'HDFCBANK.NS', 50.0000, 75000.00, 1500.0000, '2026-03-01'::date;
+    END IF;
 
     -- Three partial sales of 15 shares each (total 45)
     INSERT INTO portfolio_transaction (holding_id, user_id, ticker, transaction_type, transaction_date, price, quantity)

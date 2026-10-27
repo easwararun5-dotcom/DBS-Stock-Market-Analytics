@@ -7,6 +7,7 @@
 --   Maintains transactional, relational, and business integrity for portfolio operations:
 --     1. Validates holding relationship and cross-table ticker alignment.
 --        Automatically associates transactions with existing holdings when holding_id is omitted.
+--        Resolves user ownership and portfolio ownership through user_portfolio (Pure 3NF).
 --     2. Accurately validates SELL transactions against remaining available shares:
 --        - Source of truth: Total acquired shares minus committed SELL transactions.
 --        - Total acquired shares is derived from BUY transactions in portfolio_transaction,
@@ -32,6 +33,7 @@ DECLARE
     v_holding_user         INTEGER;
     v_holding_ticker       TEXT;
     v_holding_quantity     NUMERIC;
+    v_holding_portfolio    INTEGER;
     v_total_bought         NUMERIC;
     v_already_sold         NUMERIC;
     v_acquired_pool        NUMERIC;
@@ -62,11 +64,12 @@ BEGIN
 
     -- 2. Resolve holding and acquire row lock for concurrency serialization
     IF NEW.holding_id IS NOT NULL THEN
-        SELECT holding_id, user_id, ticker, quantity
-        INTO v_holding_id, v_holding_user, v_holding_ticker, v_holding_quantity
-        FROM portfolio_holding
-        WHERE holding_id = NEW.holding_id
-        FOR UPDATE;
+        SELECT h.holding_id, up.user_id, h.ticker, h.quantity, h.portfolio_id
+        INTO v_holding_id, v_holding_user, v_holding_ticker, v_holding_quantity, v_holding_portfolio
+        FROM portfolio_holding h
+        JOIN user_portfolio up ON h.portfolio_id = up.portfolio_id
+        WHERE h.holding_id = NEW.holding_id
+        FOR UPDATE OF h;
 
         IF NOT FOUND THEN
             RAISE EXCEPTION 'Holding with holding_id % does not exist.', NEW.holding_id
@@ -79,18 +82,41 @@ BEGIN
                 USING ERRCODE = '23514'; -- check_violation
         END IF;
 
+        IF NEW.portfolio_id IS NOT NULL AND v_holding_portfolio <> NEW.portfolio_id THEN
+            RAISE EXCEPTION 'Holding % belongs to portfolio %, not portfolio %.',
+                NEW.holding_id, v_holding_portfolio, NEW.portfolio_id
+                USING ERRCODE = '23514'; -- check_violation
+        END IF;
+
         IF v_holding_ticker <> NEW.ticker THEN
             RAISE EXCEPTION 'Transaction ticker ''%'' does not match holding ticker ''%'' (holding_id: %).',
                 NEW.ticker, v_holding_ticker, NEW.holding_id
                 USING ERRCODE = '23514'; -- check_violation
         END IF;
-    ELSE
-        -- Automatically resolve holding if holding_id omitted but user_id and ticker exist
-        SELECT holding_id, user_id, ticker, quantity
-        INTO v_holding_id, v_holding_user, v_holding_ticker, v_holding_quantity
-        FROM portfolio_holding
-        WHERE user_id = NEW.user_id AND ticker = NEW.ticker
-        FOR UPDATE;
+
+        -- Propagate portfolio_id if omitted on transaction
+        IF NEW.portfolio_id IS NULL THEN
+            NEW.portfolio_id := v_holding_portfolio;
+        END IF;
+    ELSIF (TG_OP = 'INSERT') THEN
+        -- Automatically resolve holding on INSERT if holding_id omitted
+        IF NEW.portfolio_id IS NOT NULL THEN
+            SELECT h.holding_id, up.user_id, h.ticker, h.quantity
+            INTO v_holding_id, v_holding_user, v_holding_ticker, v_holding_quantity
+            FROM portfolio_holding h
+            JOIN user_portfolio up ON h.portfolio_id = up.portfolio_id
+            WHERE h.portfolio_id = NEW.portfolio_id AND h.ticker = NEW.ticker
+            FOR UPDATE OF h;
+        ELSE
+            SELECT h.holding_id, up.user_id, h.ticker, h.quantity
+            INTO v_holding_id, v_holding_user, v_holding_ticker, v_holding_quantity
+            FROM portfolio_holding h
+            JOIN user_portfolio up ON h.portfolio_id = up.portfolio_id
+            WHERE up.user_id = NEW.user_id AND h.ticker = NEW.ticker
+            ORDER BY h.holding_id ASC
+            LIMIT 1
+            FOR UPDATE OF h;
+        END IF;
 
         IF FOUND THEN
             NEW.holding_id := v_holding_id;
@@ -98,7 +124,8 @@ BEGIN
     END IF;
 
     -- 3. Validate SELL transaction does not exceed remaining available shares
-    IF NEW.transaction_type = 'SELL' THEN
+    -- Validates on INSERT or when quantity changes (preserves ledger on ON DELETE SET NULL)
+    IF NEW.transaction_type = 'SELL' AND (TG_OP = 'INSERT' OR NEW.quantity <> OLD.quantity) THEN
         -- If no holding exists, the user owns 0 shares
         IF NEW.holding_id IS NULL THEN
             RAISE EXCEPTION 'Insufficient shares to sell: user % owns no holdings of %.',
@@ -144,7 +171,7 @@ END;
 $$;
 
 COMMENT ON FUNCTION fn_enforce_portfolio_transaction_consistency() IS
-'Validates ticker consistency, serializes concurrency via row locks, calculates remaining shares accounting for previous sales and updates, and enforces immutability.';
+'Validates ticker and portfolio consistency, serializes concurrency via row locks, calculates remaining shares accounting for previous sales and updates, and enforces immutability.';
 
 -- ----------------------------------------------------------------------------
 -- 2. Trigger Definition

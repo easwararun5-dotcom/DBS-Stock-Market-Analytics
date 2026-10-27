@@ -35,12 +35,22 @@ __pycache__/
 *.pid
 *.seed
 *.pid.lock
+.logs/
+.run/
 
 # ── Build / distribution artifacts ───────────────────────────────────────────
 dist/
 build/
 *.egg-info/
 .eggs/
+node_modules/
+frontend/dist/
+
+# ── Database backups & dumps ─────────────────────────────────────────────────
+data/backups/
+*.dump
+*.dump.*
+*.bak
 
 # ── Test and coverage artifacts ──────────────────────────────────────────────
 .pytest_cache/
@@ -50,3 +60,4 @@ htmlcov/
 # -- Windows metadata --
 desktop.ini
 Thumbs.db
+

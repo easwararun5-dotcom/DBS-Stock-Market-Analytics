@@ -11,6 +11,9 @@
 --     reflects remaining shares after partial sales (maintained by record_stock_purchase
 --     and record_stock_sale).
 --
+-- Pure 3NF Update:
+--   Joins through user_portfolio on portfolio_id to identify holdings owned by p_user_id.
+--
 -- Business rules:
 --   - Unrealised P&L = market_value - invested_value
 --   - pnl_pct = (market_value - invested_value) / invested_value * 100
@@ -55,6 +58,7 @@ AS $$
             )
         END                                                              AS pnl_pct
     FROM portfolio_holding ph
+    JOIN user_portfolio up ON ph.portfolio_id = up.portfolio_id
     JOIN company c ON c.ticker = ph.ticker
     LEFT JOIN LATERAL (
         SELECT dph.close_price
@@ -63,10 +67,10 @@ AS $$
         ORDER BY dph.trading_date DESC
         LIMIT 1
     ) lp ON TRUE
-    WHERE ph.user_id = p_user_id
+    WHERE up.user_id = p_user_id
       AND ph.quantity > 0
     ORDER BY ph.holding_id;
 $$;
 
 COMMENT ON FUNCTION calculate_portfolio_profit_loss(INTEGER) IS
-'Returns per-holding unrealised P&L using invested_value as cost basis and latest closing price as market value for active holdings (quantity > 0).';
+'Returns per-holding unrealised P&L using invested_value as cost basis and latest close price. Evaluates ownership through user_portfolio in Pure 3NF.';
