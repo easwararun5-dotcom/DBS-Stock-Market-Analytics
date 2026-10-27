@@ -1,20 +1,23 @@
 """
 API tests for DBS Stock Market Analytics Backend.
 
-Runs against a live database — requires the TimescaleDB Docker container
-to be running on port 5433.
+Runs against live dual-database architecture:
+- PostgreSQL (relational) on port 5435
+- TimescaleDB (time-series Docker container) on port 5434
 """
+
 
 import pytest
 from fastapi.testclient import TestClient
 
 import sys, os
 
-# Allow import from backend/app/
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend"))
-from app.main import app
+# Allow import from repository root
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+from backend.app.main import app
 
 client = TestClient(app)
+
 
 
 # ---------------------------------------------------------------------------
@@ -30,6 +33,15 @@ class TestHealth:
         data = r.json()
         assert data["status"] == "healthy"
         assert data["database"]["connected"] is True
+
+    def test_health_dual_databases_connected(self):
+        r = client.get("/api/health")
+        data = r.json()
+        assert data["status"] == "healthy"
+        assert data["relational_database"]["connected"] is True
+        assert data["timescale_database"]["connected"] is True
+        assert data["timescale_database"]["hypertable"] == "daily_price_history"
+
 
 
 # ---------------------------------------------------------------------------
@@ -90,9 +102,23 @@ class TestPriceHistory:
         data = r.json()
         assert len(data["data"]) > 0
 
+    def test_price_history_fields(self):
+        r = client.get("/api/prices/TCS.NS?limit=5")
+        assert r.status_code == 200
+        row = r.json()["data"][0]
+        assert "ticker" in row
+        assert "trading_date" in row
+        assert "close_price" in row
+        assert "open_price" in row
+        assert "volume" in row
+        assert "daily_return" in row
+        assert "ma_50" in row
+        assert "ma_200" in row
+
     def test_price_history_unknown_ticker(self):
         r = client.get("/api/prices/FAKEXYZ")
         assert r.status_code == 404
+
 
 
 # ---------------------------------------------------------------------------
@@ -203,20 +229,47 @@ class TestPerformance:
 
 
 # ---------------------------------------------------------------------------
-# ML (deferred)
+# ML (Trained Model & Live Trend Inference)
 # ---------------------------------------------------------------------------
 class TestML:
-    def test_ml_status_not_trained(self):
+    def test_ml_status_trained(self):
         r = client.get("/api/ml/status")
         assert r.status_code == 200
         d = r.json()
-        assert d["status"] == "not_trained"
-        assert d["ml_available"] is False
+        assert d["status"] == "trained"
+        assert d["ml_available"] is True
+        assert d["model_name"] in ["hist_gradient_boosting", "random_forest", "logistic_regression"]
+        assert d["forecast_horizon"] == 5
+        assert d["test_accuracy"] is not None
 
-    def test_ml_predictions_empty(self):
+    def test_ml_predict_valid_ticker(self):
+        r = client.get("/api/ml/predict/TCS.NS")
+        assert r.status_code == 200
+        d = r.json()
+        assert d["ticker"] == "TCS.NS"
+        assert d["predicted_trend"] in ["UP", "DOWN", "NEUTRAL"]
+        assert "probabilities" in d
+        assert "DOWN" in d["probabilities"]
+        assert "UP" in d["probabilities"]
+        assert "NEUTRAL" in d["probabilities"]
+        assert d["forecast_horizon_days"] == 5
+        assert d["latest_observation_date"] is not None
+
+    def test_ml_predict_ticker_without_suffix(self):
+        r = client.get("/api/ml/predict/INFY")
+        assert r.status_code == 200
+        d = r.json()
+        assert "INFY" in d["ticker"]
+        assert d["predicted_trend"] in ["UP", "DOWN", "NEUTRAL"]
+
+    def test_ml_predict_unknown_ticker(self):
+        r = client.get("/api/ml/predict/UNKNOWN_TICKER_XYZ")
+        assert r.status_code == 404
+
+    def test_ml_predictions_endpoint(self):
         r = client.get("/api/ml/predictions")
         assert r.status_code == 200
-        assert r.json()["total"] == 0
+        assert "data" in r.json()
 
 
 # ---------------------------------------------------------------------------
@@ -237,3 +290,30 @@ class TestWatchlistPortfolio:
         r = client.get("/api/portfolio/transactions?user_id=1")
         assert r.status_code == 200
         assert r.json()["demo_mode"] is True
+
+
+# ---------------------------------------------------------------------------
+# TimescaleDB Time-Bucket Analytics
+# ---------------------------------------------------------------------------
+class TestTimeBucketAnalytics:
+    def test_time_bucket_weekly_returns_200(self):
+        r = client.get("/api/analytics/time-bucket/TCS.NS?interval=7%20days")
+        assert r.status_code == 200
+        d = r.json()
+        assert d["ticker"] == "TCS.NS"
+        assert d["interval"] == "7 days"
+        assert d["total_buckets"] > 0
+        first_bucket = d["data"][0]
+        assert "bucket" in first_bucket
+        assert "avg_close" in first_bucket
+        assert "total_volume" in first_bucket
+        assert "min_price" in first_bucket
+        assert "max_price" in first_bucket
+        assert "record_count" in first_bucket
+
+    def test_time_bucket_date_filtered(self):
+        r = client.get("/api/analytics/time-bucket/TCS.NS?interval=7%20days&start_date=2025-01-01&end_date=2025-12-31")
+        assert r.status_code == 200
+        d = r.json()
+        assert d["total_buckets"] > 0
+

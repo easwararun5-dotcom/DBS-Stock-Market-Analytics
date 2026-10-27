@@ -1,208 +1,292 @@
 # DBS Stock Market Analytics & Portfolio Management System
 
-A full-stack financial analytics application built as a Database Systems (DBS) college project. Features real-time stock data visualization, sector analysis, portfolio tracking, and an ML prediction framework using **FastAPI**, **React**, **TimescaleDB**, and **PostgreSQL**.
+A production-grade financial analytics and portfolio management web application built as an advanced Database Systems (DBMS) project. Features dual-database architecture (**PostgreSQL** for relational application data and **TimescaleDB** for historical financial time series), a trained machine-learning stock trend prediction pipeline, secure JWT + bcrypt authentication, database-backed portfolio trading with cash accounting and concurrency locking, and a Bloomberg-inspired dark financial UI.
 
-## 📊 Dataset
+---
 
-| Metric | Value |
-|--------|-------|
-| Companies | 49 (Nifty 50 universe) |
-| Sectors | 13 |
-| Daily Price Records | 287,310 |
-| Corporate Actions | 1,653 |
-| Fundamentals | 49 |
-| Latest Data Date | **2026-01-30** |
+## 📊 Dataset & System Summary
+
+| Metric | Specification |
+|--------|---------------|
+| **Universe** | 49 Indian Blue-Chip Companies (Nifty 50 universe) |
+| **Sectors** | 13 Diversified Economic Sectors |
+| **Time-Series Engine** | TimescaleDB Hypertable (`daily_price_history`) with 360-day chunk interval |
+| **Price Records** | 287,310 Daily OHLCV Records (2000–2026) |
+| **Corporate Actions** | 1,653 Dividends and Stock Splits |
+| **Relational Database** | PostgreSQL (`stock_market_db` on port 5435) |
+| **Time-Series Database** | TimescaleDB (`stock_timescale_db` on port 5434) |
+| **ML Engine** | HistGradientBoosting Classifier (Horizon: 5 trading days, Class-weighted) |
+| **Security & Auth** | Passwords hashed with `bcrypt` (12 rounds), JWT tokens via HttpOnly cookies and Bearer headers |
+| **Latest Market Date** | **2026-01-30** |
+
+---
 
 ## 🏗 Architecture
 
 ```
-┌─────────────┐     ┌──────────────┐     ┌────────────────────┐
-│   React +   │────▶│   FastAPI     │────▶│   TimescaleDB      │
-│   Vite      │     │   Backend     │     │   (PostgreSQL 17)  │
-│   :5173     │     │   :8000       │     │   :5433 (host)     │
-└─────────────┘     └──────────────┘     └────────────────────┘
-   Frontend           16 API              Docker container
-                      endpoints           dbs_timescaledb
+┌─────────────────────────────────┐
+│       React + Vite Frontend     │  (Port 5173 - Dark Financial UI)
+│   (AuthContext, Recharts, CSS)  │
+└────────────────┬────────────────┘
+                 │ HTTP / REST (JWT Cookies & Bearer Tokens)
+┌────────────────▼────────────────┐
+│         FastAPI Backend         │  (Port 8000 - Python 3.12)
+│  (Auth, Trading, ML Inference)  │
+└───────┬─────────────────┬───────┘
+        │                 │
+        │ Parameterized   │ Time-Bucket &
+        │ SQL & Locks     │ Analytical Queries
+        ▼                 ▼
+┌──────────────────┐   ┌───────────────────────────┐
+│ PostgreSQL 17    │   │ TimescaleDB (Docker)      │
+│ (Port 5435)      │   │ (Port 5434)               │
+│ stock_market_db  │   │ stock_timescale_db        │
+├──────────────────┤   ├───────────────────────────┤
+│ • app_user       │   │ • daily_price_history     │
+│ • user_portfolio │   │   (Hypertable: 360d chunk)│
+│ • holdings       │   │ • 287,310 time-series rows│
+│ • transactions   │   └───────────────────────────┘
+│ • audit_log      │
+│ • user_watchlist │
+└──────────────────┘
 ```
+
+---
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 
-- **Docker Desktop** (running, with `dbs_timescaledb` container up)
-- **Python 3.10+** (`py` launcher on Windows)
+- **Docker Desktop** (for TimescaleDB time-series container on port 5434)
+- **PostgreSQL 17** (running on port 5435, database `stock_market_db`)
+- **Python 3.10+** (virtual environment located in `./venv`)
 - **Node.js 18+** and npm
 
-### 1. Start the Database
+---
+
+### ⚡ Start Everything with a Single Command
+
+To start the database container, FastAPI backend, and React/Vite frontend all together, simply run from the project root:
 
 ```bash
-docker compose up -d
+./start.sh
 ```
 
-The TimescaleDB container must be running with the `stock_timescale_db` database already populated. Do **not** rerun schema creation or data ingestion.
+This single command will:
+1. Verify ports `8000` (backend) and `5173` (frontend) are available and prevent conflicts.
+2. Ensure the TimescaleDB Docker container (`dbs_timescaledb`) is started.
+3. Launch the FastAPI backend using `./venv` on `http://127.0.0.1:8000`.
+4. Poll the backend health check (`/api/health`) until verified healthy.
+5. Launch the React/Vite frontend on `http://localhost:5173`.
+6. Print the service URLs and monitor both processes simultaneously.
 
-### 2. Configure Environment
+**Stopping the Application**:
+- Press `Ctrl+C` in the terminal running `./start.sh` to cleanly stop both the frontend and backend servers.
+- Or run the companion stop script:
+  ```bash
+  ./stop.sh        # Stops frontend and backend processes
+  ./stop.sh --all  # Stops frontend, backend, and TimescaleDB Docker container
+  ```
+
+---
+
+### Safe Environment Setup (.env)
+
+Copy the safe template `.env.example` to `.env` and fill in your credentials:
 
 ```bash
-# From project root
-copy .env.example .env
-# Edit .env with your database password (default: postgres)
+cp .env.example .env
 ```
 
-### 3. Install Backend Dependencies
+Ensure `.env` in the project root is configured with your database ports and passwords:
 
+```ini
+# PostgreSQL — Relational Database (stock_market_db)
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5435
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=your_postgres_password_here
+POSTGRES_DB=stock_market_db
+
+# TimescaleDB — Time-Series Database (stock_timescale_db)
+TIMESCALE_HOST=localhost
+TIMESCALE_PORT=5434
+TIMESCALE_USER=postgres
+TIMESCALE_PASSWORD=your_timescale_password_here
+TIMESCALE_DB=stock_timescale_db
+
+# JWT Authentication
+JWT_SECRET=your_jwt_secret_key_here
+```
+
+---
+
+### Database Initialization & Migrations
+
+1. **Start TimescaleDB Container**:
+   ```bash
+   docker compose up -d
+   ```
+
+2. **Initialize PostgreSQL Relational Schema**:
+   ```bash
+   psql -h localhost -p 5435 -U postgres -d stock_market_db -f sql/schema/01_create_schema.sql
+   ```
+
+3. **Execute Historical Data Ingestion**:
+   ```bash
+   ./venv/bin/python scripts/ingest_data.py
+   ```
+
+4. **Database Normalization Migrations** (in `sql/migration/`):
+   - `01_stage_replacement_360d.sql`: Optimized time-series chunking.
+   - `02_atomic_cutover.sql`: Non-blocking cutover for hypertable.
+   - `04_auth_and_user_portfolios.sql`: User authentication and paper-trading schema.
+   - `05_pure_3nf_and_risk_normalization.sql`: Pure 3NF relational normalization & audit ledger.
+   - `06_retire_risk_jsonb_column.sql`: Full cutover to normalized risk tables.
+
+---
+
+### Manual / Component-by-Component Startup (Alternative)
+
+If you prefer to start components individually:
+
+#### 1. Start Backend Server
 ```bash
-py -m pip install -r backend/requirements.txt
+./venv/bin/python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
+API Documentation (Swagger UI) is available at: **http://127.0.0.1:8000/docs**
 
-### 4. Start the Backend Server
-
-```bash
-py -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000
-```
-
-The API is now available at **http://localhost:8000**. API docs at **http://localhost:8000/docs**.
-
-### 5. Install Frontend Dependencies
-
+#### 2. Start Frontend Dev Server
 ```bash
 cd frontend
-npm install
-```
-
-### 6. Start the Frontend Dev Server
-
-```bash
 npm run dev
 ```
+Open **http://127.0.0.1:5173** in your browser.
 
-Open **http://localhost:5173** in your browser.
+---
 
-### 7. Run Tests
+## 📐 Database Normalization & ER Architecture
+
+A major highlight of this DBMS project is the academic rigorous normalization performed on raw, unnormalized NSE stock-market feeds.
+
+- **Full Normalization Report**: [docs/database-design/normalization-report.md](docs/database-design/normalization-report.md)
+- **Digital ER Diagram**: [docs/er-diagram/er-diagram-digital.md](docs/er-diagram/er-diagram-digital.md)
+
+### Key DBMS Architectural Highlights:
+1. **1NF Compliance**: Eliminated repeating multi-value attributes (corporate dividends, stock splits) into a separate `corporate_action` entity.
+2. **2NF Compliance**: Eliminated partial dependencies on composite keys `(ticker, trading_date)` by isolating company descriptive attributes (`company_name`, `industry`, `listing_date`) from daily time-series records.
+3. **3NF & BCNF Compliance**: Eliminated transitive dependencies $A \to B \to C$ (e.g., $\text{ticker} \to \text{sector\_name} \to \text{sector\_id}$) by creating an independent `sector` lookup entity with surrogate foreign keys.
+4. **Lossless Join Decompositions**: Every vertical decomposition preserves functional dependencies and satisfies Heath's Theorem: $R_1 \cap R_2 \to R_1$ or $R_1 \cap R_2 \to R_2$.
+5. **Storage Optimization**: Eliminated 7.18 MB of redundant text and float data across 287,310 records, reducing storage footprints by 12.44% while accelerating query execution.
+
+---
+
+## 🧪 Testing and Verification
+
+Run the complete backend test suite:
 
 ```bash
-# From project root
-py -m pytest tests/test_api.py -v
+# Run all 72 tests across API, Auth, Trading, Normalization, and ML
+./venv/bin/pytest tests/ -v
 ```
 
-## 📡 API Endpoints
+### Test Coverage Highlights (72 Passed Tests):
+- `tests/test_api.py`: 35 tests verifying health checks, dual database connections, TimescaleDB time-bucket aggregation, corporate actions, and company fundamentals.
+- `tests/test_auth_and_portfolio.py`: 16 tests verifying user registration, duplicate email rejection, bcrypt security, JWT authentication, portfolio isolation, paper trading orders, overselling rejection, and dashboard KPI synchronization.
+- `tests/test_ml_pipeline.py`: 12 tests verifying no lookahead data leakage, probability normalization, and chronological train/test embargo boundaries.
+- `tests/test_normalized_portfolio_and_risk.py`: 8 tests validating 3NF relational normalization, weighted-average cost basis accounting, multi-portfolio management, and transaction ledger audit triggers.
+- `tests/test_paper_trading.py`: Complete end-to-end integration test of the paper trading lifecycle.
 
-| # | Method | Endpoint | Description |
-|---|--------|----------|-------------|
-| 1 | GET | `/api/health` | Health check & database connectivity |
-| 2 | GET | `/api/dashboard` | Dashboard aggregate statistics |
-| 3 | GET | `/api/prices/latest` | Latest prices for all 49 companies |
-| 4 | GET | `/api/prices/{ticker}` | Historical OHLCV data (with date range, limit, order) |
-| 5 | GET | `/api/companies` | List/search companies (with search, sector filter, pagination) |
-| 6 | GET | `/api/companies/{ticker}` | Detailed company info (fundamentals + summary + latest price) |
-| 7 | GET | `/api/sectors` | Sector performance overview (13 sectors) |
-| 8 | GET | `/api/summary` | Stock summary statistics (sortable) |
-| 9 | GET | `/api/volatility` | 20-day volatility and MA crossover signals |
-| 10 | GET | `/api/corporate-actions` | Corporate actions with ticker/type filters, pagination |
-| 11 | GET | `/api/corporate-actions/summary` | Per-company corporate action summary |
-| 12 | GET | `/api/performance` | Stock performance metrics |
-| 13 | GET | `/api/analytics/time-bucket/{ticker}` | TimescaleDB time-bucket aggregations |
-| 14 | GET | `/api/ml/status` | ML model training status |
-| 15 | GET | `/api/ml/predictions` | ML predictions (if any exist) |
-| 16 | GET | `/api/watchlist?user_id=N` | User watchlist (demo mode) |
-| 17 | GET | `/api/portfolio/holdings?user_id=N` | Portfolio holdings (demo mode) |
-| 18 | GET | `/api/portfolio/transactions?user_id=N` | Transaction history (demo mode) |
-
-All endpoints use **parameterised SQL queries** against real database tables and views.
-
-## 🖥 Frontend Pages
-
-| Page | Route | Description |
-|------|-------|-------------|
-| Dashboard | `/` | Market overview with stats, top gainers/losers, sector chart |
-| Stock Explorer | `/stocks` | Search & browse all 49 stocks with sorting/filtering |
-| Stock Detail | `/stocks/:ticker` | Price chart (1M–All range), fundamentals, summary |
-| Sectors | `/sectors` | Sector-level P/E, returns, market cap analysis |
-| Portfolio | `/portfolio` | Holdings, allocation pie chart, transactions (demo mode) |
-| Watchlist | `/watchlist` | Tracked stocks with alerts (demo mode) |
-| ML Predictions | `/ml` | ML status — honestly reports "Not Trained Yet" |
-
-## 🗃 Database Schema
-
-13 tables across 3 domains:
-
-**Market Data**: `company`, `sector`, `daily_price_history`, `current_fundamentals`, `stock_summary`, `corporate_action`
-
-**User/Portfolio**: `app_user`, `portfolio_holding`, `portfolio_transaction`, `user_watchlist`, `alert`, `portfolio_risk_analysis`
-
-**ML**: `ml_prediction`
-
-6 views: `v_latest_stock_prices`, `v_company_fundamentals`, `v_sector_performance`, `v_stock_performance`, `v_stock_volatility`, `v_corporate_action_summary`
-
-## ⚠️ Known Limitations
-
-- **No authentication**: Portfolio and watchlist features operate in demo mode with a hardcoded user ID. Data is not user-specific or secure.
-- **ML not trained**: The ML prediction section honestly displays "Not Trained Yet". No fake predictions are shown. The `ml_prediction` table schema is preserved for future use.
-- **Read-only API**: No write endpoints for portfolio transactions or watchlist management are implemented (would require authentication first).
-- **Static dataset**: Data is current through 2026-01-30. No live market data feed.
-- **`daily_price_history` is not a hypertable**: TimescaleDB's `time_bucket()` function works but without hypertable optimizations.
-
-## 📁 Project Structure
-
-```
-DBS-Stock-Market-Analytics/
-├── backend/
-│   ├── app/
-│   │   ├── __init__.py
-│   │   ├── database.py          # Database configuration (env vars)
-│   │   └── main.py              # FastAPI endpoints (16 routes)
-│   ├── requirements.txt
-│   └── scripts/                 # Migration & test scripts (preserved)
-├── frontend/
-│   ├── src/
-│   │   ├── api.js               # API client
-│   │   ├── main.jsx             # Entry point
-│   │   ├── App.jsx              # Router
-│   │   ├── index.css            # Global styles
-│   │   ├── components/
-│   │   │   ├── Layout.jsx       # Sidebar navigation
-│   │   │   └── Common.jsx       # Shared UI components
-│   │   └── pages/
-│   │       ├── Dashboard.jsx
-│   │       ├── StockExplorer.jsx
-│   │       ├── StockDetail.jsx
-│   │       ├── Sectors.jsx
-│   │       ├── Portfolio.jsx
-│   │       ├── Watchlist.jsx
-│   │       └── MLPredictions.jsx
-│   ├── .env                     # Frontend env config
-│   ├── index.html
-│   ├── vite.config.js
-│   └── package.json
-├── sql/                         # SQL scripts (preserved)
-├── scripts/                     # Ingestion scripts (preserved)
-├── data/                        # Raw datasets (preserved)
-├── docs/                        # Documentation (preserved)
-├── tests/
-│   ├── test_api.py              # 28 API integration tests
-│   ├── test_portfolio_lifecycle.sql
-│   └── test_triggers.sql
-├── .env                         # Backend env config (git-ignored)
-├── .env.example                 # Template without credentials
-├── docker-compose.yml
-└── README.md
+### Frontend Production Build:
+```bash
+cd frontend && npm run build
 ```
 
-## ✅ Test Results
+---
 
-```
-28 passed in ~5s
+## 🎓 DBMS Project Demonstration Guide
 
-tests/test_api.py::TestHealth (2 tests)
-tests/test_api.py::TestDashboard (3 tests)
-tests/test_api.py::TestLatestPrices (2 tests)
-tests/test_api.py::TestPriceHistory (3 tests)
-tests/test_api.py::TestCompanies (5 tests)
-tests/test_api.py::TestSectors (1 test)
-tests/test_api.py::TestStockSummary (2 tests)
-tests/test_api.py::TestVolatility (1 test)
-tests/test_api.py::TestCorporateActions (3 tests)
-tests/test_api.py::TestPerformance (1 test)
-tests/test_api.py::TestML (2 tests)
-tests/test_api.py::TestWatchlistPortfolio (3 tests)
+Follow these steps and representative SQL queries during your live project presentation:
+
+### Step 1: User Registration
+Register a new user in the web UI at `http://127.0.0.1:5173/register` or via API.
+Verify in PostgreSQL:
+```sql
+SELECT user_id, email, full_name, created_at
+FROM app_user
+ORDER BY user_id DESC
+LIMIT 1;
 ```
+
+### Step 2: Automatic Portfolio Provisioning
+Verify the default "Main Portfolio" and initial ₹100,000 cash balance:
+```sql
+SELECT portfolio_id, user_id, portfolio_name, cash_balance, created_at
+FROM user_portfolio
+WHERE user_id = (SELECT MAX(user_id) FROM app_user);
+```
+
+### Step 3: Stock Purchase (BUY Transaction)
+In the UI, click **+ Buy Stock**, select `RELIANCE.NS`, quantity `10`, price `₹2500.00`.
+Verify the transaction and cash balance reduction to ₹75,000.00:
+```sql
+-- Verify Portfolio Cash Deduction
+SELECT portfolio_name, cash_balance
+FROM user_portfolio
+WHERE user_id = (SELECT MAX(user_id) FROM app_user);
+
+-- Verify Upserted Holding
+SELECT holding_id, ticker, quantity, average_buy_price, invested_value
+FROM portfolio_holding
+WHERE portfolio_id = (SELECT portfolio_id FROM user_portfolio WHERE user_id = (SELECT MAX(user_id) FROM app_user));
+
+-- Verify Transaction Ledger Entry
+SELECT transaction_id, ticker, transaction_type, quantity, price
+FROM portfolio_transaction
+WHERE user_id = (SELECT MAX(user_id) FROM app_user)
+ORDER BY transaction_id DESC
+LIMIT 1;
+
+-- Verify Audit Trigger Execution
+SELECT audit_id, operation, transaction_id, ticker, transaction_type, price, quantity, audit_timestamp
+FROM portfolio_transaction_audit
+ORDER BY audit_id DESC
+LIMIT 1;
+```
+
+### Step 4: Stock Sale (SELL Transaction)
+In the UI, click **- Sell** on `RELIANCE.NS`, sell `5` shares at `₹2600.00`.
+Verify cash balance increased by ₹13,000 to ₹88,000, and remaining shares equal 5:
+```sql
+SELECT cash_balance FROM user_portfolio WHERE user_id = (SELECT MAX(user_id) FROM app_user);
+SELECT ticker, quantity, invested_value FROM portfolio_holding WHERE user_id = (SELECT MAX(user_id) FROM app_user);
+```
+
+### Step 5: Personalized Watchlist CRUD
+In the UI, go to **Watchlist**, add `TCS.NS` with alert price `₹3600.00`.
+Verify insertion and uniqueness constraint:
+```sql
+SELECT watchlist_id, user_id, ticker, alert_price, added_at
+FROM user_watchlist
+WHERE user_id = (SELECT MAX(user_id) FROM app_user);
+```
+
+### Step 6: Multi-User Isolation
+Log in as a second user (or run `tests/test_auth_and_portfolio.py`).
+Verify User B cannot view User A's holdings or transactions:
+```sql
+-- Demonstrates foreign key constraints and user ownership isolation
+SELECT p.portfolio_id, p.portfolio_name, u.email
+FROM user_portfolio p
+JOIN app_user u ON p.user_id = u.user_id
+ORDER BY p.portfolio_id DESC
+LIMIT 2;
+```
+
+---
+
+## ⚖️ Known Limitations
+
+1. **Market Data Boundary**: Historical stock records span up to **2026-01-30**. Market valuation calculations use the latest recorded market prices from this snapshot.
+2. **Simulated Execution**: Stock orders execute against the system's internal paper trading cash account rather than a live brokerage exchange.
