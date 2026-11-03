@@ -6,9 +6,9 @@
 
 ## 2. Problem Statement
 
-Investors often find it difficult to analyse historical stock market data, track stock performance, manage their portfolios, and make informed investment decisions. Managing large amounts of historical financial data also creates challenges in data storage, retrieval, and performance.
+Investors often find it difficult to analyse historical stock market data, track stock performance, manage their portfolios, and make informed investment decisions. Managing large volumes of historical financial records also creates significant challenges in database storage, query latency, and analytical throughput.
 
-This project aims to develop a centralized stock market analytics and portfolio management system that uses relational and time-series databases to efficiently store, manage, and analyse financial market information.
+This project addresses these challenges by developing a centralized stock market analytics and portfolio management platform that leverages a dual-database architecture—combining relational PostgreSQL with time-series TimescaleDB—to efficiently store, process, and analyze financial market information.
 
 ## 3. Abstract
 
@@ -18,102 +18,90 @@ The DBS Stock Market Analytics and Portfolio Management System is designed to he
 
 | S. No. | Name | Register Number |
 |---|---|---|
-| 1 | [Easwar A P] | [25BCE1512] |
-| 2 | [Mohammed Irfan] | [25BCE1462] |
-| 3 | [Mohammed Nadeem] | [25BCE1771] |
+| 1 | Easwar A P | 25BCE1512 |
+| 2 | Mohamed Irfan | 25BCE1462 |
+| 3 | Mohammed Nadeem | 25BCE1771 |
 
 ## 5. Functional Features
 
-- Historical stock market data management for Nifty 50 companies.
-- Stock price analysis using historical market records.
-- Portfolio creation and management.
-- Tracking of stock investments and transactions.
-- Corporate action management, including dividends and stock splits.
-- Time-series data storage and retrieval using TimescaleDB.
-- Relational data management using PostgreSQL.
-- Analytical SQL queries for extracting useful financial information.
-- Database triggers for automated database operations.
-- Stored procedures and views for simplifying complex database operations.
-- Frontend interface for interacting with the application.
+- **Historical Stock Data Management**: Long-term OHLCV price histories and corporate actions for 49 Nifty 50 blue-chip companies.
+- **Time-Series Analysis**: High-performance hypertable time-bucket aggregations powered by TimescaleDB.
+- **Portfolio & Paper Trading**: Virtual portfolio management with cash balance accounting, trade execution, and weighted average cost basis calculations.
+- **Watchlist & Price Alerts**: User-configurable watchlists with price threshold alerts and trigger tracking.
+- **Machine Learning Forecasts**: Trend prediction pipeline utilizing HistGradientBoosting classification over 5-day trading horizons.
+- **Automated Database Consistency**: Database triggers enforcing ledger immutability, stock availability checks, and audit logging.
+- **Stored Procedures & Views**: Encapsulated procedures for trade recording and analytical views for fundamentals, volatility, and sector performance.
+- **Interactive Financial Dashboard**: Responsive web interface with dark financial UI, interactive charts, and valuation screens.
 
 ## 6. Technology Stack
 
 | Component | Technology |
 |---|---|
-| Relational Database | PostgreSQL 18 |
-| Time-Series Database | TimescaleDB |
-| Database Containerization | Docker |
-| Backend | [Enter backend technology] |
-| Frontend | [Enter frontend technology] |
-| Programming Language | Python |
-| Data Processing | Pandas |
-| Version Control | Git and GitHub |
+| Relational Database | PostgreSQL 17 / 18 (Port 5435) |
+| Time-Series Database | TimescaleDB (PostgreSQL 17 Hypertable, Port 5434) |
+| Database Containerization | Docker & Docker Compose |
+| Backend Framework | FastAPI (Python 3.12, Uvicorn, SQLAlchemy) |
+| Frontend Framework | React 18, Vite, Recharts, Lucide Icons |
+| Machine Learning | Scikit-learn (HistGradientBoosting), Pandas, NumPy |
+| Authentication & Security | JWT Tokens, Bcrypt Password Hashing |
+| Version Control | Git & GitHub |
 
 ## 7. Database Software and Requirements
 
 ### Software Requirements
 
-- PostgreSQL 18
-- TimescaleDB (compatible version)
-- Docker Desktop
-- Python 3.x
-- Git
-- Node.js and npm (if required by the frontend)
-- Required Python packages
+- **PostgreSQL 17 or 18** (Relational instance on port 5435)
+- **Docker Desktop** (To run the TimescaleDB container on port 5434)
+- **Python 3.10+** (Python 3.12 recommended)
+- **Node.js 18+ and npm** (For frontend dependencies)
+- **Git**
 
 ### Hardware Requirements
 
-- Minimum 8 GB RAM recommended.
-- Stable internet connection for initial setup.
-- Sufficient disk space for historical stock market data.
+- Minimum 8 GB RAM (16 GB recommended for running dual databases and frontend simultaneously).
+- Minimum 2 GB free disk space for historical datasets, database indexes, and node modules.
 
 ## 8. Database Architecture
 
-The project uses two database systems to handle different types of information.
+The system utilizes a dual-database architecture to separate relational operations from high-volume time-series processing:
 
-### PostgreSQL
+1. **PostgreSQL (`stock_market_db` on port 5435)**:
+   - Manages relational domain entities including users, portfolios, cash balances, transactions, company profiles, fundamentals, corporate actions, and audit logs.
+   - Enforces referential integrity (foreign keys), ACID compliance, and concurrency locking (`SELECT FOR UPDATE`).
 
-PostgreSQL manages relational information, including:
+2. **TimescaleDB (`stock_timescale_db` on port 5434 in Docker)**:
+   - Stores 287,310+ historical daily price records in the `daily_price_history` hypertable partitioned by 360-day chunks.
+   - Provides optimized time-series rollups, moving averages, and OHLC candlestick aggregations.
 
-- User information
-- Portfolio details
-- Stock information and related metadata
-- Transactions
-- Corporate actions
-- Other relational records
+## 9. Database Tables, Relationships, and Sample Data
 
-### TimescaleDB
+The relational schema consists of 13 interconnected tables adhering to Boyce-Codd Normal Form (BCNF) and Third Normal Form (3NF):
 
-TimescaleDB handles time-series financial information, particularly historical stock market prices.
+- **Market Classification & Securities**:
+  - `sector`: Industrial classifications (13 sectors).
+  - `company`: Company directory (49 Nifty 50 companies; FK to `sector`).
+  - `daily_price_history`: Historical OHLCV market quotes (composite PK: `ticker, trading_date`; FK to `company`).
+  - `corporate_action`: Dividend distributions and stock split events (FK to `company`).
+  - `current_fundamentals`: P/E, EPS, Beta, Market Cap, and valuation multiples (FK to `company`).
+  - `stock_summary`: Long-term trading statistics and historical returns (FK to `company`).
 
-Historical stock price records are stored using TimescaleDB hypertables to support efficient time-based data storage and querying.
+- **User & Portfolio Management**:
+  - `app_user`: User credentials with bcrypt password hashes and roles.
+  - `user_portfolio`: User investment accounts with cash balance tracking (FK to `app_user`).
+  - `portfolio_holding`: Aggregated stock holdings adhering to 3NF (FK to `user_portfolio`, FK to `company`).
+  - `portfolio_transaction`: Immutable audit ledger of all BUY/SELL orders (FK to `user_portfolio`, FK to `company`).
+  - `user_watchlist`: Target price alert watchlists (FK to `app_user`, FK to `company`).
+  - `alert`: System notifications and price alerts (FK to `app_user`, FK to `company`).
 
-This architecture allows the application to use PostgreSQL for relational operations while taking advantage of TimescaleDB for historical financial data.
-
-## 9. Database Tables and Relationships
-
-The PostgreSQL database consists of a 13-table schema designed for stock market analytics and portfolio management.
-
-The database includes entities related to:
-
-- Stocks and companies
-- Historical market information
-- Corporate actions
-- Users
-- Portfolios
-- Investment transactions
-
-The tables are connected using primary keys and foreign keys to maintain referential integrity.
-
-The TimescaleDB implementation stores historical stock price information in time-series format using hypertables.
+- **Risk & Predictions**:
+  - `portfolio_risk_analysis` & `portfolio_risk_sector_allocation`: Sharpe ratio, volatility, and sector allocations.
+  - `ml_prediction`: Model inference forecast outputs (FK to `company`).
 
 ### Sample Dataset
 
-- 49 Nifty 50 stocks
-- 287,310 daily historical price records
-- Historical data covering 1999–2026
-- 1,653 corporate action events
-- Dividend and stock split information
+- **49 Listed Companies**: Complete Nifty 50 universe (e.g., RELIANCE.NS, TCS.NS, INFY.NS, HDFCBANK.NS).
+- **287,310 Daily Price Records**: Continuous daily trading sessions spanning 1999–2026.
+- **1,653 Corporate Action Events**: Historical dividends and stock split adjustments.
 
 ## 10. Application Setup and Execution
 
@@ -121,131 +109,145 @@ The TimescaleDB implementation stores historical stock price information in time
 
 ```bash
 git clone https://github.com/easwararun5-dotcom/DBS-Stock-Market-Analytics.git
-
 cd DBS-Stock-Market-Analytics
 ```
 
 ### Step 2: Configure Environment Variables
 
-Create a `.env` file using the provided example.
+Create your local `.env` configuration file from the template:
 
 ```bash
 cp .env.example .env
 ```
 
-Configure the required PostgreSQL connection details in the `.env` file.
+Adjust the database credentials in `.env` if your local PostgreSQL settings differ from the defaults.
 
-### Step 3: Start the Databases
+### Step 3: Start TimescaleDB Service
 
-Start the PostgreSQL and TimescaleDB services using Docker.
+Start the TimescaleDB Docker container:
 
 ```bash
 docker compose up -d
 ```
 
-Verify that both database services are running before proceeding.
+Verify the container is healthy using `docker ps`.
 
-### Step 4: Create the Database Schema
+### Step 4: Initialize the Database Schema
 
-Execute the SQL schema file:
-
-```bash
-psql -U <username> -d <database_name> -f sql/01_create_schema.sql
-```
-
-### Step 5: Enable TimescaleDB
-
-Ensure that the TimescaleDB extension is enabled in the appropriate database.
-
-```sql
-CREATE EXTENSION IF NOT EXISTS timescaledb;
-```
-
-Create the required hypertable for historical stock price data as defined in the project implementation.
-
-### Step 6: Load Sample Data
-
-Use the provided Python ingestion script:
+Create tables, indexes, views, and functions in your relational database:
 
 ```bash
+psql -h localhost -p 5435 -U <username> -d stock_market_db -f database/schema.sql
+```
+
+*(Note: Stored procedures and triggers can also be initialized from `database/procedures/` and `database/triggers/` if rebuilding from scratch).*
+
+### Step 5: Load Sample Data
+
+Seed the database with sample companies, fundamentals, and demo accounts:
+
+```bash
+psql -h localhost -p 5435 -U <username> -d stock_market_db -f database/sample_data.sql
+```
+
+To ingest the full 287,000+ historical records:
+
+```bash
+python3 -m venv venv
+source venv/bin/activate
 pip install -r requirements.txt
-
-python scripts/ingest_data.py
+python src/scripts/ingest_data.py
 ```
 
-Configure the database connections and data paths before running the ingestion process.
+### Step 6: Run the Application
 
-### Step 7: Start the Application
+#### Option A: Unified Startup Script (Recommended)
 
-Start the backend and frontend using their respective setup instructions.
+Run the provided startup script to start both backend and frontend servers:
 
-**Backend:**
-cd backend
-python main.py
+```bash
+./start.sh
+```
 
-**Frontend:**
-cd frontend
-python -m http.server 5500
+To stop all running services cleanly:
 
+```bash
+./stop.sh
+```
 
-The application can then be accessed through the configured local development URL.
+#### Option B: Manual Startup
+
+**Start Backend (FastAPI):**
+```bash
+source venv/bin/activate
+export PYTHONPATH=src
+uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --reload
+```
+
+**Start Frontend (React / Vite):**
+```bash
+cd src/frontend
+npm install
+npm run dev
+```
+
+Open your browser at `http://localhost:5173`. Backend interactive Swagger API documentation is available at `http://127.0.0.1:8000/docs`.
 
 ## 11. Implemented Database Components
 
-The project includes:
+- **13 Relational Tables**: Full schema with referential integrity constraints and primary keys.
+- **6 Analytical Views**: Pre-aggregated metrics (`v_latest_stock_prices`, `v_company_fundamentals`, `v_stock_performance`, `v_sector_performance`, `v_stock_volatility`, `v_corporate_action_summary`).
+- **7 Stored Procedures**: Transaction management and portfolio valuation routines (`database/procedures/`).
+- **2 Database Triggers**: Audit logging and balance consistency checks (`database/triggers/`).
+- **10 Analytical SQL Files**: Categorized SQL query suite (`database/queries/`).
 
-- 13 relational database tables.
-- 6 analytical database views.
-- 7 stored procedures.
-- 2 database triggers.
-- SQL analytical query suite consisting of 10 files.
-- Automated CSV data ingestion pipeline.
-- Trigger integration test suite covering 8 scenarios, including live concurrency testing.
+## 12. Screenshots and Summary of Implemented Features
 
-## 12. Brief Summary and Implemented Features
+High-resolution application and database evidence screenshots are available in the [`screenshots/`](screenshots/) directory:
 
-The DBS Stock Market Analytics and Portfolio Management System provides a database-driven platform for managing and analysing stock market data. It includes a historical stock price data ingestion pipeline that loads data for 49 Nifty 50 companies, along with corporate action records such as dividends and stock splits. The system uses relational tables to organise stock, price, and corporate action data, supported by analytical views, stored procedures, and triggers. It enables users to perform stock market analysis through SQL queries and maintains data consistency through automated database operations. Testing scripts are also included to verify the analytical queries and trigger functionality.
+- `screenshots/WhatsApp Image 2026-11-03 at 21.07.16.jpeg`: Stock Explorer with interactive historical price chart, valuation multiples, and company fundamentals.
+- `screenshots/WhatsApp Image 2026-11-03 at 21.07.17.jpeg`: User Portfolio Dashboard showing live asset allocation, cash balance, and trade execution interface.
+- `screenshots/WhatsApp Image 2026-11-03 at 21.07.17 (1).jpeg`: Machine Learning Trend Prediction screen displaying class probabilities, direction forecasts, and model confidence scores.
+- `screenshots/WhatsApp Image 2026-11-03 at 21.07.18.jpeg`: Watchlist and Price Alerts interface with target price tracking.
 
 ## 13. Testing Instructions
 
-The project includes database-level testing for validating data operations and trigger behaviour.
+Automated test suites validate query syntax, database triggers, concurrency locks, and API endpoints.
 
-Run the following test scripts:
+### Run Full Test Suite
 
 ```bash
-python scripts/test_queries.py
-
-python scripts/test_triggers.py
+source venv/bin/activate
+pytest tests/
 ```
 
-Verify the following:
+### Run Database & Analytical SQL Tests
 
-- Successful database connectivity.
-- Correct table creation and relationships.
-- Successful historical data ingestion.
-- Correct execution of analytical queries.
-- Proper trigger execution.
-- Successful TimescaleDB hypertable creation.
-- Successful retrieval of time-series records.
-- Correct application connectivity with both databases.
+```bash
+python src/scripts/test_queries.py
+python src/scripts/test_triggers.py
+```
+
+### Verification Checklist
+
+- Successful dual-database connectivity (PostgreSQL port 5435 & TimescaleDB port 5434).
+- Correct execution of all 10 analytical SQL queries.
+- Trigger rejection of invalid stock transactions (e.g., selling more shares than owned).
+- Correct calculations for portfolio valuations, profit/loss, and moving averages.
 
 ## 14. Known Limitations
 
-- Historical data availability depends on the provided dataset.
-- Stock market analysis is based on historical information and does not guarantee future market performance.
-- Application functionality depends on successful database connectivity.
-- Real-time market data availability depends on external data sources, if configured.
-- The system is developed primarily as an academic project and is not intended to provide professional investment advice.
+1. **Historical Market Data Boundary**: The dataset spans trading sessions up to January 30, 2026. The application does not connect to live streaming exchange feeds for intraday tick updates.
+2. **Simulated Order Execution**: Orders are executed against the internal virtual paper-trading cash account rather than an external brokerage exchange.
+3. **TimescaleDB Container Prerequisite**: Advanced time-bucket queries require the Docker TimescaleDB container to be running. If Docker is offline, the API falls back to standard PostgreSQL relational tables.
+4. **Academic Project Scope**: The platform and ML trend predictions are developed strictly for academic demonstration and DBMS assignment evaluation, not for financial investment advice.
 
 ## 15. YouTube Demonstration
 
-**Project Demonstration Video:** [Insert YouTube Link Here]
+**Project Demonstration Video:** https://youtu.be/xEibkMBX38E
 
-The demonstration covers the application interface, database architecture, PostgreSQL implementation, TimescaleDB implementation, data ingestion, and major functional features.
+The video demonstration covers application interface features, dual-database architecture, PostgreSQL & TimescaleDB queries, data ingestion, stored procedures, triggers, and live test executions.
 
 ## 16. Repository
 
-GitHub Repository:
-
-https://github.com/easwararun5-dotcom/DBS-Stock-Market-Analytics
-
+GitHub Repository: https://github.com/easwararun5-dotcom/DBS-Stock-Market-Analytics
