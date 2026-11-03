@@ -367,8 +367,10 @@ def main():
     parser.add_argument("--port", default=os.getenv("PGPORT", "5435"))
     parser.add_argument("--dbname", default=os.getenv("PGDATABASE", "stock_market_db"))
     parser.add_argument("--user", default=os.getenv("PGUSER", "easwarap"))
-    parser.add_argument("--historical-csv", default="data/historical/nifty50_historical_data.csv")
-    parser.add_argument("--summary-csv", default="data/processed/nifty50_summary_statistics.csv")
+    default_hist = "src/data/historical/nifty50_historical_data.csv" if os.path.exists("src/data/historical/nifty50_historical_data.csv") else "data/historical/nifty50_historical_data.csv"
+    default_summary = "src/data/processed/nifty50_summary_statistics.csv" if os.path.exists("src/data/processed/nifty50_summary_statistics.csv") else "data/processed/nifty50_summary_statistics.csv"
+    parser.add_argument("--historical-csv", default=default_hist)
+    parser.add_argument("--summary-csv", default=default_summary)
     parser.add_argument("--verify-only", action="store_true", help="Run validation queries only without ingestion.")
 
     args = parser.parse_args()

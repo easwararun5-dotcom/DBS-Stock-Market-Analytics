@@ -497,12 +497,21 @@ def price_history(
 ):
     clean = ticker.strip().upper()
 
-    # Verify ticker exists in company registry (PostgreSQL)
+    # Verify ticker exists in company registry (PostgreSQL), supporting with/without .NS
     exists = pg_db.execute(
-        text("SELECT 1 FROM company WHERE ticker = :t"), {"t": clean}
+        text("SELECT ticker FROM company WHERE ticker = :t"), {"t": clean}
     ).fetchone()
     if not exists:
-        raise HTTPException(status_code=404, detail=f"Ticker '{clean}' not found")
+        clean_ns = f"{clean}.NS" if not clean.endswith(".NS") else clean
+        clean_base = clean[:-3] if clean.endswith(".NS") else clean
+        alt = pg_db.execute(
+            text("SELECT ticker FROM company WHERE ticker = :t1 OR ticker = :t2"),
+            {"t1": clean_ns, "t2": clean_base},
+        ).fetchone()
+        if alt:
+            clean = alt[0]
+        else:
+            raise HTTPException(status_code=404, detail=f"Ticker '{clean}' not found")
 
     filters = ["ticker = :ticker"]
     params: Dict[str, Any] = {"ticker": clean, "limit": limit}
@@ -525,18 +534,39 @@ def price_history(
         ORDER BY trading_date {direction}
         LIMIT :limit
     """
+    rows = None
+    # 1. Primary: Stream from TimescaleDB hypertable
     try:
-        # Stream from TimescaleDB hypertable
         rows = ts_db.execute(text(sql), params).fetchall()
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"TimescaleDB historical query failed: {e}")
+    except Exception:
+        pass
+
+    # 2. Fallback: Query PostgreSQL relational database if TimescaleDB is unreachable
+    if rows is None:
+        try:
+            rows = pg_db.execute(text(sql), params).fetchall()
+        except Exception as pg_err:
+            raise HTTPException(
+                status_code=503,
+                detail=f"Historical price service unavailable: {pg_err}",
+            )
 
     data = [_row_to_dict(r) for r in rows]
 
-    # Get total record count for this ticker from TimescaleDB
+    # Get total record count for this ticker with fallback
     count_params = {k: v for k, v in params.items() if k != "limit"}
     count_sql = f"SELECT COUNT(*) FROM daily_price_history WHERE {where}"
-    total = ts_db.execute(text(count_sql), count_params).scalar()
+    total = None
+    try:
+        total = ts_db.execute(text(count_sql), count_params).scalar()
+    except Exception:
+        pass
+
+    if total is None:
+        try:
+            total = pg_db.execute(text(count_sql), count_params).scalar()
+        except Exception:
+            total = len(data)
 
     return {"ticker": clean, "total_records": total, "returned": len(data), "data": data}
 
@@ -846,13 +876,40 @@ def ml_status(db: Session = Depends(get_relational_db)):
 @app.get("/api/ml/predict/{ticker}", summary="Predict 5-day stock trend direction")
 def ml_predict_ticker(
     ticker: str,
+    pg_db: Session = Depends(get_relational_db),
     ts_db: Session = Depends(get_timescale_db),
 ):
     if not predict_ticker:
         raise HTTPException(status_code=503, detail="ML inference module is not loaded.")
 
-    res = predict_ticker(ticker, ts_db)
-    if "error" in res:
+    clean = ticker.strip().upper()
+
+    # Normalize ticker against company registry, supporting with/without .NS
+    clean_ns = f"{clean}.NS" if not clean.endswith(".NS") else clean
+    clean_base = clean[:-3] if clean.endswith(".NS") else clean
+    alt = pg_db.execute(
+        text("SELECT ticker FROM company WHERE ticker = :t OR ticker = :t1 OR ticker = :t2"),
+        {"t": clean, "t1": clean_ns, "t2": clean_base},
+    ).fetchone()
+    target_ticker = alt[0] if alt else clean
+
+    # Primary: TimescaleDB, Fallback: PostgreSQL
+    res = None
+    try:
+        res = predict_ticker(target_ticker, ts_db, fallback_db=pg_db)
+    except Exception:
+        pass
+
+    if res is None or (isinstance(res, dict) and "error" in res and res.get("status") == "db_error"):
+        try:
+            res = predict_ticker(target_ticker, pg_db)
+        except Exception as e:
+            raise HTTPException(
+                status_code=503,
+                detail=f"Database service temporarily unavailable for ML inference: {e}",
+            )
+
+    if isinstance(res, dict) and "error" in res:
         err_status = res.get("status")
         if err_status == "ticker_not_found":
             raise HTTPException(status_code=404, detail=res["error"])

@@ -1,292 +1,251 @@
-# DBS Stock Market Analytics & Portfolio Management System
+# DBS Stock Market Analytics and Portfolio Management System
 
-A production-grade financial analytics and portfolio management web application built as an advanced Database Systems (DBMS) project. Features dual-database architecture (**PostgreSQL** for relational application data and **TimescaleDB** for historical financial time series), a trained machine-learning stock trend prediction pipeline, secure JWT + bcrypt authentication, database-backed portfolio trading with cash accounting and concurrency locking, and a Bloomberg-inspired dark financial UI.
+## 1. Project Title
 
----
+**DBS Stock Market Analytics and Portfolio Management System**
 
-## 📊 Dataset & System Summary
+## 2. Problem Statement
 
-| Metric | Specification |
-|--------|---------------|
-| **Universe** | 49 Indian Blue-Chip Companies (Nifty 50 universe) |
-| **Sectors** | 13 Diversified Economic Sectors |
-| **Time-Series Engine** | TimescaleDB Hypertable (`daily_price_history`) with 360-day chunk interval |
-| **Price Records** | 287,310 Daily OHLCV Records (2000–2026) |
-| **Corporate Actions** | 1,653 Dividends and Stock Splits |
-| **Relational Database** | PostgreSQL (`stock_market_db` on port 5435) |
-| **Time-Series Database** | TimescaleDB (`stock_timescale_db` on port 5434) |
-| **ML Engine** | HistGradientBoosting Classifier (Horizon: 5 trading days, Class-weighted) |
-| **Security & Auth** | Passwords hashed with `bcrypt` (12 rounds), JWT tokens via HttpOnly cookies and Bearer headers |
-| **Latest Market Date** | **2026-01-30** |
+Investors often find it difficult to analyse historical stock market data, track stock performance, manage their portfolios, and make informed investment decisions. Managing large amounts of historical financial data also creates challenges in data storage, retrieval, and performance.
 
----
+This project aims to develop a centralized stock market analytics and portfolio management system that uses relational and time-series databases to efficiently store, manage, and analyse financial market information.
 
-## 🏗 Architecture
+## 3. Abstract
 
-```
-┌─────────────────────────────────┐
-│       React + Vite Frontend     │  (Port 5173 - Dark Financial UI)
-│   (AuthContext, Recharts, CSS)  │
-└────────────────┬────────────────┘
-                 │ HTTP / REST (JWT Cookies & Bearer Tokens)
-┌────────────────▼────────────────┐
-│         FastAPI Backend         │  (Port 8000 - Python 3.12)
-│  (Auth, Trading, ML Inference)  │
-└───────┬─────────────────┬───────┘
-        │                 │
-        │ Parameterized   │ Time-Bucket &
-        │ SQL & Locks     │ Analytical Queries
-        ▼                 ▼
-┌──────────────────┐   ┌───────────────────────────┐
-│ PostgreSQL 17    │   │ TimescaleDB (Docker)      │
-│ (Port 5435)      │   │ (Port 5434)               │
-│ stock_market_db  │   │ stock_timescale_db        │
-├──────────────────┤   ├───────────────────────────┤
-│ • app_user       │   │ • daily_price_history     │
-│ • user_portfolio │   │   (Hypertable: 360d chunk)│
-│ • holdings       │   │ • 287,310 time-series rows│
-│ • transactions   │   └───────────────────────────┘
-│ • audit_log      │
-│ • user_watchlist │
-└──────────────────┘
-```
+The DBS Stock Market Analytics and Portfolio Management System is designed to help users analyse stock market data and manage their investment portfolios. The system uses PostgreSQL for relational data management and TimescaleDB for handling time-series financial data. It contains historical stock price information for Nifty 50 companies from 1999 to 2026, along with corporate actions such as dividends and stock splits. The project includes database views, stored procedures, triggers, and analytical SQL queries to support efficient data processing and portfolio-related operations. The application also provides a user interface for interacting with the system and viewing relevant financial information.
 
----
+## 4. Team Members
 
-## 🚀 Quick Start
+| S. No. | Name | Register Number |
+|---|---|---|
+| 1 | [Easwar A P] | [25BCE1512] |
+| 2 | [Mohammed Irfan] | [25BCE1462] |
+| 3 | [Mohammed Nadeem] | [25BCE1771] |
 
-### Prerequisites
+## 5. Functional Features
 
-- **Docker Desktop** (for TimescaleDB time-series container on port 5434)
-- **PostgreSQL 17** (running on port 5435, database `stock_market_db`)
-- **Python 3.10+** (virtual environment located in `./venv`)
-- **Node.js 18+** and npm
+- Historical stock market data management for Nifty 50 companies.
+- Stock price analysis using historical market records.
+- Portfolio creation and management.
+- Tracking of stock investments and transactions.
+- Corporate action management, including dividends and stock splits.
+- Time-series data storage and retrieval using TimescaleDB.
+- Relational data management using PostgreSQL.
+- Analytical SQL queries for extracting useful financial information.
+- Database triggers for automated database operations.
+- Stored procedures and views for simplifying complex database operations.
+- Frontend interface for interacting with the application.
 
----
+## 6. Technology Stack
 
-### ⚡ Start Everything with a Single Command
+| Component | Technology |
+|---|---|
+| Relational Database | PostgreSQL 18 |
+| Time-Series Database | TimescaleDB |
+| Database Containerization | Docker |
+| Backend | [Enter backend technology] |
+| Frontend | [Enter frontend technology] |
+| Programming Language | Python |
+| Data Processing | Pandas |
+| Version Control | Git and GitHub |
 
-To start the database container, FastAPI backend, and React/Vite frontend all together, simply run from the project root:
+## 7. Database Software and Requirements
+
+### Software Requirements
+
+- PostgreSQL 18
+- TimescaleDB (compatible version)
+- Docker Desktop
+- Python 3.x
+- Git
+- Node.js and npm (if required by the frontend)
+- Required Python packages
+
+### Hardware Requirements
+
+- Minimum 8 GB RAM recommended.
+- Stable internet connection for initial setup.
+- Sufficient disk space for historical stock market data.
+
+## 8. Database Architecture
+
+The project uses two database systems to handle different types of information.
+
+### PostgreSQL
+
+PostgreSQL manages relational information, including:
+
+- User information
+- Portfolio details
+- Stock information and related metadata
+- Transactions
+- Corporate actions
+- Other relational records
+
+### TimescaleDB
+
+TimescaleDB handles time-series financial information, particularly historical stock market prices.
+
+Historical stock price records are stored using TimescaleDB hypertables to support efficient time-based data storage and querying.
+
+This architecture allows the application to use PostgreSQL for relational operations while taking advantage of TimescaleDB for historical financial data.
+
+## 9. Database Tables and Relationships
+
+The PostgreSQL database consists of a 13-table schema designed for stock market analytics and portfolio management.
+
+The database includes entities related to:
+
+- Stocks and companies
+- Historical market information
+- Corporate actions
+- Users
+- Portfolios
+- Investment transactions
+
+The tables are connected using primary keys and foreign keys to maintain referential integrity.
+
+The TimescaleDB implementation stores historical stock price information in time-series format using hypertables.
+
+### Sample Dataset
+
+- 49 Nifty 50 stocks
+- 287,310 daily historical price records
+- Historical data covering 1999–2026
+- 1,653 corporate action events
+- Dividend and stock split information
+
+## 10. Application Setup and Execution
+
+### Step 1: Clone the Repository
 
 ```bash
-./start.sh
+git clone https://github.com/easwararun5-dotcom/DBS-Stock-Market-Analytics.git
+
+cd DBS-Stock-Market-Analytics
 ```
 
-This single command will:
-1. Verify ports `8000` (backend) and `5173` (frontend) are available and prevent conflicts.
-2. Ensure the TimescaleDB Docker container (`dbs_timescaledb`) is started.
-3. Launch the FastAPI backend using `./venv` on `http://127.0.0.1:8000`.
-4. Poll the backend health check (`/api/health`) until verified healthy.
-5. Launch the React/Vite frontend on `http://localhost:5173`.
-6. Print the service URLs and monitor both processes simultaneously.
+### Step 2: Configure Environment Variables
 
-**Stopping the Application**:
-- Press `Ctrl+C` in the terminal running `./start.sh` to cleanly stop both the frontend and backend servers.
-- Or run the companion stop script:
-  ```bash
-  ./stop.sh        # Stops frontend and backend processes
-  ./stop.sh --all  # Stops frontend, backend, and TimescaleDB Docker container
-  ```
-
----
-
-### Safe Environment Setup (.env)
-
-Copy the safe template `.env.example` to `.env` and fill in your credentials:
+Create a `.env` file using the provided example.
 
 ```bash
 cp .env.example .env
 ```
 
-Ensure `.env` in the project root is configured with your database ports and passwords:
+Configure the required PostgreSQL connection details in the `.env` file.
 
-```ini
-# PostgreSQL — Relational Database (stock_market_db)
-POSTGRES_HOST=localhost
-POSTGRES_PORT=5435
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=your_postgres_password_here
-POSTGRES_DB=stock_market_db
+### Step 3: Start the Databases
 
-# TimescaleDB — Time-Series Database (stock_timescale_db)
-TIMESCALE_HOST=localhost
-TIMESCALE_PORT=5434
-TIMESCALE_USER=postgres
-TIMESCALE_PASSWORD=your_timescale_password_here
-TIMESCALE_DB=stock_timescale_db
+Start the PostgreSQL and TimescaleDB services using Docker.
 
-# JWT Authentication
-JWT_SECRET=your_jwt_secret_key_here
+```bash
+docker compose up -d
 ```
 
----
+Verify that both database services are running before proceeding.
 
-### Database Initialization & Migrations
+### Step 4: Create the Database Schema
 
-1. **Start TimescaleDB Container**:
-   ```bash
-   docker compose up -d
-   ```
+Execute the SQL schema file:
 
-2. **Initialize PostgreSQL Relational Schema**:
-   ```bash
-   psql -h localhost -p 5435 -U postgres -d stock_market_db -f sql/schema/01_create_schema.sql
-   ```
-
-3. **Execute Historical Data Ingestion**:
-   ```bash
-   ./venv/bin/python scripts/ingest_data.py
-   ```
-
-4. **Database Normalization Migrations** (in `sql/migration/`):
-   - `01_stage_replacement_360d.sql`: Optimized time-series chunking.
-   - `02_atomic_cutover.sql`: Non-blocking cutover for hypertable.
-   - `04_auth_and_user_portfolios.sql`: User authentication and paper-trading schema.
-   - `05_pure_3nf_and_risk_normalization.sql`: Pure 3NF relational normalization & audit ledger.
-   - `06_retire_risk_jsonb_column.sql`: Full cutover to normalized risk tables.
-
----
-
-### Manual / Component-by-Component Startup (Alternative)
-
-If you prefer to start components individually:
-
-#### 1. Start Backend Server
 ```bash
-./venv/bin/python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --reload
+psql -U <username> -d <database_name> -f sql/01_create_schema.sql
 ```
-API Documentation (Swagger UI) is available at: **http://127.0.0.1:8000/docs**
 
-#### 2. Start Frontend Dev Server
+### Step 5: Enable TimescaleDB
+
+Ensure that the TimescaleDB extension is enabled in the appropriate database.
+
+```sql
+CREATE EXTENSION IF NOT EXISTS timescaledb;
+```
+
+Create the required hypertable for historical stock price data as defined in the project implementation.
+
+### Step 6: Load Sample Data
+
+Use the provided Python ingestion script:
+
 ```bash
+pip install -r requirements.txt
+
+python scripts/ingest_data.py
+```
+
+Configure the database connections and data paths before running the ingestion process.
+
+### Step 7: Start the Application
+
+Start the backend and frontend using their respective setup instructions.
+
+**Backend:**
+cd backend
+python main.py
+
+**Frontend:**
 cd frontend
-npm run dev
-```
-Open **http://127.0.0.1:5173** in your browser.
+python -m http.server 5500
 
----
 
-## 📐 Database Normalization & ER Architecture
+The application can then be accessed through the configured local development URL.
 
-A major highlight of this DBMS project is the academic rigorous normalization performed on raw, unnormalized NSE stock-market feeds.
+## 11. Implemented Database Components
 
-- **Full Normalization Report**: [docs/database-design/normalization-report.md](docs/database-design/normalization-report.md)
-- **Digital ER Diagram**: [docs/er-diagram/er-diagram-digital.md](docs/er-diagram/er-diagram-digital.md)
+The project includes:
 
-### Key DBMS Architectural Highlights:
-1. **1NF Compliance**: Eliminated repeating multi-value attributes (corporate dividends, stock splits) into a separate `corporate_action` entity.
-2. **2NF Compliance**: Eliminated partial dependencies on composite keys `(ticker, trading_date)` by isolating company descriptive attributes (`company_name`, `industry`, `listing_date`) from daily time-series records.
-3. **3NF & BCNF Compliance**: Eliminated transitive dependencies $A \to B \to C$ (e.g., $\text{ticker} \to \text{sector\_name} \to \text{sector\_id}$) by creating an independent `sector` lookup entity with surrogate foreign keys.
-4. **Lossless Join Decompositions**: Every vertical decomposition preserves functional dependencies and satisfies Heath's Theorem: $R_1 \cap R_2 \to R_1$ or $R_1 \cap R_2 \to R_2$.
-5. **Storage Optimization**: Eliminated 7.18 MB of redundant text and float data across 287,310 records, reducing storage footprints by 12.44% while accelerating query execution.
+- 13 relational database tables.
+- 6 analytical database views.
+- 7 stored procedures.
+- 2 database triggers.
+- SQL analytical query suite consisting of 10 files.
+- Automated CSV data ingestion pipeline.
+- Trigger integration test suite covering 8 scenarios, including live concurrency testing.
 
----
+## 12. Brief Summary and Implemented Features
 
-## 🧪 Testing and Verification
+The DBS Stock Market Analytics and Portfolio Management System provides a database-driven platform for managing and analysing stock market data. It includes a historical stock price data ingestion pipeline that loads data for 49 Nifty 50 companies, along with corporate action records such as dividends and stock splits. The system uses relational tables to organise stock, price, and corporate action data, supported by analytical views, stored procedures, and triggers. It enables users to perform stock market analysis through SQL queries and maintains data consistency through automated database operations. Testing scripts are also included to verify the analytical queries and trigger functionality.
 
-Run the complete backend test suite:
+## 13. Testing Instructions
+
+The project includes database-level testing for validating data operations and trigger behaviour.
+
+Run the following test scripts:
 
 ```bash
-# Run all 72 tests across API, Auth, Trading, Normalization, and ML
-./venv/bin/pytest tests/ -v
+python scripts/test_queries.py
+
+python scripts/test_triggers.py
 ```
 
-### Test Coverage Highlights (72 Passed Tests):
-- `tests/test_api.py`: 35 tests verifying health checks, dual database connections, TimescaleDB time-bucket aggregation, corporate actions, and company fundamentals.
-- `tests/test_auth_and_portfolio.py`: 16 tests verifying user registration, duplicate email rejection, bcrypt security, JWT authentication, portfolio isolation, paper trading orders, overselling rejection, and dashboard KPI synchronization.
-- `tests/test_ml_pipeline.py`: 12 tests verifying no lookahead data leakage, probability normalization, and chronological train/test embargo boundaries.
-- `tests/test_normalized_portfolio_and_risk.py`: 8 tests validating 3NF relational normalization, weighted-average cost basis accounting, multi-portfolio management, and transaction ledger audit triggers.
-- `tests/test_paper_trading.py`: Complete end-to-end integration test of the paper trading lifecycle.
+Verify the following:
 
-### Frontend Production Build:
-```bash
-cd frontend && npm run build
-```
+- Successful database connectivity.
+- Correct table creation and relationships.
+- Successful historical data ingestion.
+- Correct execution of analytical queries.
+- Proper trigger execution.
+- Successful TimescaleDB hypertable creation.
+- Successful retrieval of time-series records.
+- Correct application connectivity with both databases.
 
----
+## 14. Known Limitations
 
-## 🎓 DBMS Project Demonstration Guide
+- Historical data availability depends on the provided dataset.
+- Stock market analysis is based on historical information and does not guarantee future market performance.
+- Application functionality depends on successful database connectivity.
+- Real-time market data availability depends on external data sources, if configured.
+- The system is developed primarily as an academic project and is not intended to provide professional investment advice.
 
-Follow these steps and representative SQL queries during your live project presentation:
+## 15. YouTube Demonstration
 
-### Step 1: User Registration
-Register a new user in the web UI at `http://127.0.0.1:5173/register` or via API.
-Verify in PostgreSQL:
-```sql
-SELECT user_id, email, full_name, created_at
-FROM app_user
-ORDER BY user_id DESC
-LIMIT 1;
-```
+**Project Demonstration Video:** [Insert YouTube Link Here]
 
-### Step 2: Automatic Portfolio Provisioning
-Verify the default "Main Portfolio" and initial ₹100,000 cash balance:
-```sql
-SELECT portfolio_id, user_id, portfolio_name, cash_balance, created_at
-FROM user_portfolio
-WHERE user_id = (SELECT MAX(user_id) FROM app_user);
-```
+The demonstration covers the application interface, database architecture, PostgreSQL implementation, TimescaleDB implementation, data ingestion, and major functional features.
 
-### Step 3: Stock Purchase (BUY Transaction)
-In the UI, click **+ Buy Stock**, select `RELIANCE.NS`, quantity `10`, price `₹2500.00`.
-Verify the transaction and cash balance reduction to ₹75,000.00:
-```sql
--- Verify Portfolio Cash Deduction
-SELECT portfolio_name, cash_balance
-FROM user_portfolio
-WHERE user_id = (SELECT MAX(user_id) FROM app_user);
+## 16. Repository
 
--- Verify Upserted Holding
-SELECT holding_id, ticker, quantity, average_buy_price, invested_value
-FROM portfolio_holding
-WHERE portfolio_id = (SELECT portfolio_id FROM user_portfolio WHERE user_id = (SELECT MAX(user_id) FROM app_user));
+GitHub Repository:
 
--- Verify Transaction Ledger Entry
-SELECT transaction_id, ticker, transaction_type, quantity, price
-FROM portfolio_transaction
-WHERE user_id = (SELECT MAX(user_id) FROM app_user)
-ORDER BY transaction_id DESC
-LIMIT 1;
+https://github.com/easwararun5-dotcom/DBS-Stock-Market-Analytics
 
--- Verify Audit Trigger Execution
-SELECT audit_id, operation, transaction_id, ticker, transaction_type, price, quantity, audit_timestamp
-FROM portfolio_transaction_audit
-ORDER BY audit_id DESC
-LIMIT 1;
-```
-
-### Step 4: Stock Sale (SELL Transaction)
-In the UI, click **- Sell** on `RELIANCE.NS`, sell `5` shares at `₹2600.00`.
-Verify cash balance increased by ₹13,000 to ₹88,000, and remaining shares equal 5:
-```sql
-SELECT cash_balance FROM user_portfolio WHERE user_id = (SELECT MAX(user_id) FROM app_user);
-SELECT ticker, quantity, invested_value FROM portfolio_holding WHERE user_id = (SELECT MAX(user_id) FROM app_user);
-```
-
-### Step 5: Personalized Watchlist CRUD
-In the UI, go to **Watchlist**, add `TCS.NS` with alert price `₹3600.00`.
-Verify insertion and uniqueness constraint:
-```sql
-SELECT watchlist_id, user_id, ticker, alert_price, added_at
-FROM user_watchlist
-WHERE user_id = (SELECT MAX(user_id) FROM app_user);
-```
-
-### Step 6: Multi-User Isolation
-Log in as a second user (or run `tests/test_auth_and_portfolio.py`).
-Verify User B cannot view User A's holdings or transactions:
-```sql
--- Demonstrates foreign key constraints and user ownership isolation
-SELECT p.portfolio_id, p.portfolio_name, u.email
-FROM user_portfolio p
-JOIN app_user u ON p.user_id = u.user_id
-ORDER BY p.portfolio_id DESC
-LIMIT 2;
-```
-
----
-
-## ⚖️ Known Limitations
-
-1. **Market Data Boundary**: Historical stock records span up to **2026-01-30**. Market valuation calculations use the latest recorded market prices from this snapshot.
-2. **Simulated Execution**: Stock orders execute against the system's internal paper trading cash account rather than a live brokerage exchange.

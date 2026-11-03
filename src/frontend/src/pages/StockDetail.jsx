@@ -26,27 +26,32 @@ export default function StockDetail() {
   const [error, setError] = useState(null)
   const [range, setRange] = useState('1Y')
   const [chartType, setChartType] = useState('close')
+  const [chartError, setChartError] = useState(null)
 
   useEffect(() => {
     setLoading(true)
     setError(null)
-    Promise.all([
-      api.companyDetail(ticker),
-      loadHistory('1Y'),
-    ])
-      .then(([d]) => setDetail(d))
+    api.companyDetail(ticker)
+      .then(d => {
+        setDetail(d)
+        const anchor = d?.latest_price?.latest_trading_date || d?.summary?.last_trading_date || '2026-01-30'
+        return loadHistory('1Y', anchor)
+      })
       .catch(e => setError(e.message))
       .finally(() => setLoading(false))
   }, [ticker])
 
-  const loadHistory = async (rangeLabel) => {
+  const loadHistory = async (rangeLabel, anchorDate = null) => {
     setChartLoading(true)
+    setChartError(null)
     const opt = RANGE_OPTIONS.find(r => r.label === rangeLabel)
     const params = { limit: '50000', order: 'asc' }
     if (opt && opt.days) {
-      const end = new Date('2026-01-30')
+      const lastDate = anchorDate || detail?.latest_price?.latest_trading_date || detail?.summary?.last_trading_date || '2026-01-30'
+      const [y, m, d] = String(lastDate).split('-').map(Number)
+      const end = new Date(Date.UTC(y, m - 1, d))
       const start = new Date(end)
-      start.setDate(start.getDate() - opt.days)
+      start.setUTCDate(start.getUTCDate() - opt.days)
       params.start_date = start.toISOString().split('T')[0]
       params.end_date = end.toISOString().split('T')[0]
     }
@@ -55,8 +60,10 @@ export default function StockDetail() {
       setHistory(d.data || [])
     } catch (e) {
       console.error(e)
+      setChartError(e.message || 'Failed to load price history')
+    } finally {
+      setChartLoading(false)
     }
-    setChartLoading(false)
   }
 
   const handleRange = (label) => {
@@ -154,6 +161,13 @@ export default function StockDetail() {
         <div className="card-body">
           {chartLoading ? (
             <Loading message="Loading chart..." />
+          ) : chartError ? (
+            <div className="empty-state" style={{ padding: 24, textAlign: 'center' }}>
+              <p style={{ color: '#ef4444', marginBottom: 12 }}>{chartError}</p>
+              <button className="btn btn-sm btn-primary" onClick={() => loadHistory(range)}>
+                Retry
+              </button>
+            </div>
           ) : chartData.length === 0 ? (
             <div className="empty-state"><p>No price data for selected range</p></div>
           ) : (

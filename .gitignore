@@ -45,6 +45,7 @@ build/
 .eggs/
 node_modules/
 frontend/dist/
+src/frontend/dist/
 
 # ── Database backups & dumps ─────────────────────────────────────────────────
 data/backups/

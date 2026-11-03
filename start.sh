@@ -97,9 +97,14 @@ if [ ! -x "$VENV_PYTHON" ]; then
     exit 1
 fi
 
-if [ ! -d "$PROJECT_ROOT/frontend/node_modules" ]; then
-    echo "[INFO] frontend/node_modules not found. Installing frontend dependencies..."
-    (cd "$PROJECT_ROOT/frontend" && npm install)
+FRONTEND_DIR="$PROJECT_ROOT/src/frontend"
+if [ ! -d "$FRONTEND_DIR" ]; then
+    FRONTEND_DIR="$PROJECT_ROOT/frontend"
+fi
+
+if [ ! -d "$FRONTEND_DIR/node_modules" ]; then
+    echo "[INFO] node_modules not found in $FRONTEND_DIR. Installing frontend dependencies..."
+    (cd "$FRONTEND_DIR" && npm install)
 fi
 
 # ------------------------------------------------------------------------------
@@ -149,6 +154,7 @@ trap 'cleanup 0' INT TERM HUP
 # 5. Start Backend Server
 # ------------------------------------------------------------------------------
 echo "[INFO] Starting FastAPI backend on http://127.0.0.1:$BACKEND_PORT..."
+export PYTHONPATH="$PROJECT_ROOT/src:$PROJECT_ROOT:$PYTHONPATH"
 "$VENV_PYTHON" -m uvicorn backend.app.main:app --host 127.0.0.1 --port "$BACKEND_PORT" --reload > "$LOG_DIR/backend.log" 2>&1 &
 BACKEND_PID=$!
 echo "$BACKEND_PID" > "$PID_DIR/backend.pid"
@@ -197,7 +203,7 @@ echo "[INFO] Backend is healthy and responding."
 # 7. Start Frontend Dev Server
 # ------------------------------------------------------------------------------
 echo "[INFO] Starting React/Vite frontend on http://localhost:$FRONTEND_PORT..."
-(cd "$PROJECT_ROOT/frontend" && npm run dev -- --port "$FRONTEND_PORT" --host 127.0.0.1) > "$LOG_DIR/frontend.log" 2>&1 &
+(cd "$FRONTEND_DIR" && npm run dev -- --port "$FRONTEND_PORT" --host 127.0.0.1) > "$LOG_DIR/frontend.log" 2>&1 &
 FRONTEND_PID=$!
 echo "$FRONTEND_PID" > "$PID_DIR/frontend.pid"
 

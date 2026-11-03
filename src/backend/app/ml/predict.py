@@ -76,11 +76,15 @@ def get_model_status() -> Dict[str, Any]:
     }
 
 
-def predict_ticker(ticker: str, db: Session) -> Dict[str, Any]:
+def predict_ticker(
+    ticker: str,
+    db: Session,
+    fallback_db: Optional[Session] = None,
+) -> Dict[str, Any]:
     """
     Executes live trend inference for a given stock ticker.
     1. Validates ticker.
-    2. Queries latest historical daily records from TimescaleDB (at least 210 trading days for MA warmup).
+    2. Queries latest historical daily records from TimescaleDB (or PostgreSQL fallback).
     3. Computes features strictly up to the latest available observation date.
     4. Generates predicted direction and class probabilities.
     """
@@ -99,7 +103,7 @@ def predict_ticker(ticker: str, db: Session) -> Dict[str, Any]:
     else:
         possible_tickers.append(raw_ticker[:-3])
 
-    # Fetch latest 260 trading sessions from TimescaleDB daily_price_history
+    # Fetch latest trading sessions from daily_price_history
     query = text("""
         SELECT 
             trading_date AS "Date",
@@ -109,11 +113,27 @@ def predict_ticker(ticker: str, db: Session) -> Dict[str, Any]:
             low_price AS "Low",
             close_price AS "Close",
             volume AS "Volume"
-        FROM public.daily_price_history
+        FROM daily_price_history
         WHERE ticker IN :tickers
         ORDER BY trading_date ASC
     """)
-    rows = db.execute(query, {"tickers": tuple(possible_tickers)}).fetchall()
+    rows = None
+    try:
+        rows = db.execute(query, {"tickers": tuple(possible_tickers)}).fetchall()
+    except Exception as db_err:
+        if fallback_db is not None:
+            try:
+                rows = fallback_db.execute(query, {"tickers": tuple(possible_tickers)}).fetchall()
+            except Exception as fb_err:
+                return {
+                    "error": f"Database error during historical data extraction: {fb_err}",
+                    "status": "db_error",
+                }
+        else:
+            return {
+                "error": f"Database error during historical data extraction: {db_err}",
+                "status": "db_error",
+            }
 
     if not rows:
         return {

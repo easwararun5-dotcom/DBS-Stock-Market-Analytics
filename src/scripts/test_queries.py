@@ -15,7 +15,19 @@ PORT = os.getenv("PGPORT", "5435")
 DBNAME = os.getenv("PGDATABASE", "stock_market_db")
 USER = os.getenv("PGUSER", "easwarap")
 
-QUERY_DIR = "sql/queries"
+def get_query_dir():
+    candidates = [
+        "database/queries",
+        "sql/queries",
+        os.path.join(os.path.dirname(__file__), "..", "..", "database", "queries"),
+        os.path.join(os.path.dirname(__file__), "..", "database", "queries"),
+    ]
+    for c in candidates:
+        if os.path.isdir(c):
+            return c
+    return "database/queries"
+
+QUERY_DIR = get_query_dir()
 
 def main():
     files = sorted(glob.glob(os.path.join(QUERY_DIR, "*.sql")))

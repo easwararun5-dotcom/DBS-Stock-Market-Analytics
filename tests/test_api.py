@@ -96,6 +96,27 @@ class TestPriceHistory:
         assert data["ticker"] == "TCS.NS"
         assert len(data["data"]) == 10
 
+    def test_price_history_for_adanient(self):
+        r = client.get("/api/prices/ADANIENT.NS?limit=10")
+        assert r.status_code == 200
+        data = r.json()
+        assert data["ticker"] == "ADANIENT.NS"
+        assert len(data["data"]) == 10
+
+    def test_price_history_for_reliance(self):
+        r = client.get("/api/prices/RELIANCE.NS?limit=10")
+        assert r.status_code == 200
+        data = r.json()
+        assert data["ticker"] == "RELIANCE.NS"
+        assert len(data["data"]) == 10
+
+    def test_price_history_without_ns_suffix(self):
+        r = client.get("/api/prices/ADANIENT?limit=5")
+        assert r.status_code == 200
+        data = r.json()
+        assert "ADANIENT" in data["ticker"]
+        assert len(data["data"]) == 5
+
     def test_price_history_date_range(self):
         r = client.get("/api/prices/TCS.NS?start_date=2025-01-01&end_date=2025-01-31&limit=100")
         assert r.status_code == 200
@@ -254,6 +275,22 @@ class TestML:
         assert "NEUTRAL" in d["probabilities"]
         assert d["forecast_horizon_days"] == 5
         assert d["latest_observation_date"] is not None
+
+    def test_ml_predict_reliance(self):
+        r = client.get("/api/ml/predict/RELIANCE.NS")
+        assert r.status_code == 200
+        d = r.json()
+        assert d["ticker"] == "RELIANCE.NS"
+        assert d["predicted_trend"] in ["UP", "DOWN", "NEUTRAL"]
+        assert "probabilities" in d
+
+    def test_ml_predict_adanient(self):
+        r = client.get("/api/ml/predict/ADANIENT.NS")
+        assert r.status_code == 200
+        d = r.json()
+        assert d["ticker"] == "ADANIENT.NS"
+        assert d["predicted_trend"] in ["UP", "DOWN", "NEUTRAL"]
+        assert "probabilities" in d
 
     def test_ml_predict_ticker_without_suffix(self):
         r = client.get("/api/ml/predict/INFY")

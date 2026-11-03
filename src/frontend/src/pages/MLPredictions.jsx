@@ -59,9 +59,13 @@ export default function MLPredictions() {
 
   const handleFormSubmit = (e) => {
     if (e) e.preventDefault()
-    const clean = inputTicker.trim()
+    let clean = inputTicker.trim().toUpperCase()
     if (!clean) return
+    if (!clean.includes('.') && companies.some(c => c.ticker === `${clean}.NS`)) {
+      clean = `${clean}.NS`
+    }
     setSelectedTicker(clean)
+    setInputTicker(clean)
     fetchPrediction(clean)
   }
 

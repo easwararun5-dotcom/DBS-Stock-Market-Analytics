@@ -19,9 +19,16 @@ from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session, declarative_base
 
-# Load .env from project root (two levels up from this file)
-_env_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".env"))
-load_dotenv(_env_path)
+# Load .env from project root
+_candidate_paths = [
+    os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", ".env")),
+    os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".env")),
+    os.path.abspath(os.path.join(os.getcwd(), ".env")),
+]
+for _candidate in _candidate_paths:
+    if os.path.exists(_candidate):
+        load_dotenv(_candidate)
+        break
 
 Base = declarative_base()
 
